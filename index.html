@@ -103,11 +103,7 @@
     <button onclick="sendMessage()">Invia</button>
   </div>
 
-  <script>
-    /<script>
-  // 🌐 URL del tuo backend attivo su Render
-  <script>
-  // ✅ URL del tuo backend attivo su Render
+<<script>
   const API_URL = "https://chatai-world.onrender.com";
   const chat = document.getElementById("chat");
 
@@ -139,12 +135,13 @@
       document.querySelector(".bot:last-child").textContent =
         data.reply || "⚠️ Nessuna risposta dal server.";
     } catch (error) {
-      document.querySelector(".bot:last-child").textContent =
-        "❌ Errore di connessione con l'API.";
+      const botMessages = document.querySelectorAll(".bot");
+botMessages[botMessages.length - 1].textContent =
+  data.reply || "⚠️ Nessuna risposta dal server.";
     }
   }
 
-  // ✅ Permette di inviare anche premendo Invio
+  // ✅ Invia anche premendo Invio
   document.getElementById("userInput").addEventListener("keypress", function (e) {
     if (e.key === "Enter") sendMessage();
   });
