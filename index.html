@@ -95,58 +95,70 @@
   <header>🌍 ChatAI World – Chat intelligente su persone e mondo</header>
 
   <div id="chat"></div>
-
+<div id="chat">
+  <div class="message bot">🤖 Benvenuto su ChatAI World! Scrivi qualcosa per iniziare.</div>
+</div>
   <div id="input-area">
     <input id="userInput" type="text" placeholder="Scrivi qualcosa..." />
     <button onclick="sendMessage()">Invia</button>
   </div>
 
   <script>
-    // 🌐 URL del tuo backend attivo su Render
-    const API_URL = "https://chatai-world.onrender.com";
-    const chat = document.getElementById("chat");
+    /<script>
+  // 🌐 URL del tuo backend attivo su Render
+  const API_URL = "https://chatai-world.onrender.com";
+  const chat = document.getElementById("chat");
 
-    // Aggiunge messaggio alla chat
-    function addMessage(text, sender) {
-      const div = document.createElement("div");
-      div.classList.add("message", sender);
-      div.textContent = text;
-      chat.appendChild(div);
-      chat.scrollTop = chat.scrollHeight;
+  // Aggiunge un messaggio alla chat
+  function addMessage(text, sender) {
+    const div = document.createElement("div");
+    div.classList.add("message", sender);
+    div.textContent = text;
+    chat.appendChild(div);
+    chat.scrollTop = chat.scrollHeight;
+  }
+
+  // Invia messaggio all'API
+  async function sendMessage() {
+    const input = document.getElementById("userInput");
+    const text = input.value.trim();
+    if (!text) return;
+
+    addMessage(text, "user");
+    input.value = "";
+    addMessage("💭 Sto pensando...", "bot");
+
+    try {
+      const response = await fetch(`${API_URL}/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: text })
+      });
+
+      const data = await response.json();
+      const botMessages = document.querySelectorAll(".bot");
+      botMessages[botMessages.length - 1].textContent =
+        data.reply || "⚠️ Nessuna risposta dal server.";
+    } catch (error) {
+      const botMessages = document.querySelectorAll(".bot");
+      botMessages[botMessages.length - 1].textContent =
+        "❌ Errore di connessione con l'API.";
     }
+  }
 
-    // Invia messaggio all'API
-    async function sendMessage() {
-      const input = document.getElementById("userInput");
-      const text = input.value.trim();
-      if (!text) return;
+  // Premi Invio per inviare
+  document.getElementById("userInput").addEventListener("keypress", function (e) {
+    if (e.key === "Enter") sendMessage();
+  });
+</script>
 
-      addMessage(text, "user");
-      input.value = "";
-      addMessage("💭 Sto pensando...", "bot");
+<!-- 🔙 Pulsante per tornare al sito principale -->
+<footer style="text-align:center; padding:15px; background:#001520; border-top:1px solid #38bdf8;">
+  <a href="https://bobmoukhlis-hash.github.io" 
+     style="color:#38bdf8; text-decoration:none; font-weight:bold;">
+     ⬅ Torna a BOUABID.DEV
+  </a>
+</footer>
 
-      try {
-        const response = await fetch(`${API_URL}/chat`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message: text })
-        });
-
-        const data = await response.json();
-        const botMessages = document.querySelectorAll(".bot");
-        botMessages[botMessages.length - 1].textContent =
-          data.reply || "⚠️ Nessuna risposta dal server.";
-      } catch (error) {
-        const botMessages = document.querySelectorAll(".bot");
-        botMessages[botMessages.length - 1].textContent =
-          "❌ Errore di connessione con l'API.";
-      }
-    }
-
-    // Premi Invio per inviare
-    document.getElementById("userInput").addEventListener("keypress", function(e) {
-      if (e.key === "Enter") sendMessage();
-    });
-  </script>
 </body>
 </html>
