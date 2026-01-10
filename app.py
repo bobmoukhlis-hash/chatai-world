@@ -11,12 +11,15 @@ def home():
     return "🌍 ChatAI World API attiva con AI!"
 
 @app.route('/chat', methods=['POST'])
+@app.route('/chat', methods=['POST'])
 def chat():
     data = request.get_json()
-    user_message = data.get("message", "").strip()
-
+    user_message = data.get("message", "")
     if not user_message:
         return jsonify({"reply": "⚠️ Messaggio vuoto."})
+
+    reply = f"🌍 Hai detto: {user_message}"
+    return jsonify({"reply": reply})
 
     # 🔑 Leggi le chiavi dalle variabili d'ambiente su Render
     hf_key = os.getenv("HUGGINGFACE_API_KEY")
@@ -64,5 +67,5 @@ def chat():
     return jsonify({"reply": "❌ Nessuna AI disponibile al momento."})
 
 
-if __name__ == '__main__':
+if if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
