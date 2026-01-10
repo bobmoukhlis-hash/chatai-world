@@ -95,7 +95,7 @@
     try {
       window.speechSynthesis.cancel();
       const u = new SpeechSynthesisUtterance(text);
-      u.lang = "it-IT";
+      r.lang = navigator.language || "en-US";
       window.speechSynthesis.speak(u);
     } catch (_) {}
   }
