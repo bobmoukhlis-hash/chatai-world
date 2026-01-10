@@ -1,8 +1,8 @@
 from flask import Flask, request, jsonify
-from flask_cors import CORS  # ✅ permette al sito GitHub di comunicare con il backend
+from flask_cors import CORS  # ✅ permette al sito GitHub di comunicare
 
 app = Flask(__name__)
-CORS(app)  # ✅ abilita tutte le origini (incluso GitHub Pages)
+CORS(app)  # ✅ abilita tutte le origini (GitHub, Render, ecc.)
 
 @app.route('/')
 def home():
@@ -16,7 +16,6 @@ def chat():
     if not user_message:
         return jsonify({"reply": "⚠️ Messaggio vuoto."})
 
-    # 🔹 Logica semplice di test
     if "ciao" in user_message:
         reply = "👋 Ciao! Come posso aiutarti oggi?"
     elif "mondo" in user_message:
