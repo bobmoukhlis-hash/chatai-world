@@ -12,166 +12,96 @@ from flask_cors import CORS
 app = Flask(__name__)
 CORS(app)
 
-# ===== Config =====
+# ================= CONFIG =================
 GROQ_API_KEY_ENV = "GROQ_API_KEY"
 MODEL_ENV = "MODEL"
 
 DEFAULT_MODEL = "llama-3.3-70b-versatile"
-DEFAULT_TIMEOUT_SECONDS = 25.0
-MAX_MEMORY_MESSAGES = 50  # keeps last 50 user+assistant turns (approx via cap below)
+TIMEOUT_SECONDS = 25
+MAX_TURNS = 50  # 50 messaggi utente + 50 AI
 
-# In-memory per session_id
-CHAT_MEMORY: Dict[str, List[Dict[str, Any]]] = {}
+# memoria in RAM (per session_id)
+CHAT_MEMORY: Dict[str, List[Dict[str, str]]] = {}
 
 
-def _get_env(name: str) -> Optional[str]:
+# ================= UTILS =================
+def get_env(name: str) -> Optional[str]:
     v = os.getenv(name)
-    return v.strip() if v and v.strip() else None
+    return v.strip() if v else None
 
 
-def _sanitize_reply(text: str) -> str:
-    s = text
-    s = re.sub(r"```(?:\w+)?\n([\s\S]*?)```", r"\1", s)
-    s = re.sub(r"`([^`]*)`", r"\1", s)
-    s = re.sub(r"\[([^\]]+)\]\(([^)]+)\)", r"\1", s)
-    s = s.replace("**", "").replace("__", "")
-    s = re.sub(r"\*(.*?)\*", r"\1", s)
-    s = re.sub(r"_(.*?)_", r"\1", s)
-    s = re.sub(r"^\s{0,3}#{1,6}\s*", "", s, flags=re.MULTILINE)
-    s = re.sub(r"^\s{0,3}>\s?", "", s, flags=re.MULTILINE)
-    s = re.sub(r"^\s*[-•]\s+", "", s, flags=re.MULTILINE)
-    s = re.sub(r"^\s*\d+\.\s+", "", s, flags=re.MULTILINE)
-    s = s.replace("*", "")
-    s = re.sub(r"\n{3,}", "\n\n", s).strip()
-    return s
+def clean_text(text: str) -> str:
+    text = re.sub(r"```.*?```", "", text, flags=re.S)
+    text = text.replace("**", "").replace("*", "")
+    return text.strip()
 
 
-def _lang_hint(preferred_lang: str) -> str:
-    """
-    preferred_lang examples: 'it-IT', 'en-US', 'ar-SA', 'fr-FR'
-    We instruct: respond in user's language; if unsure, use preferred_lang.
-    """
-    pl = (preferred_lang or "").strip()
-    if not pl:
-        return "Rispondi nella lingua dell'utente."
-    return (
-        f"La lingua preferita del dispositivo è '{pl}'. "
-        "Rispondi nella lingua dell'utente; se è ambiguo, usa la lingua preferita."
+def system_prompt(lang: str, mode: str) -> str:
+    base = (
+        "Sei ChatAI World, assistente AI potente per studio, coding, social media e traduzioni.\n"
+        "Rispondi nella lingua dell'utente.\n"
+        "NON usare markdown, niente **, niente elenchi pesanti.\n"
+        "Risposte chiare, utili e dirette.\n"
     )
 
+    if mode == "study":
+        base += "Modalità STUDIO: spiega passo passo, come un tutor.\n"
+    elif mode == "code":
+        base += "Modalità CODING: scrivi codice completo HTML CSS JS.\n"
+    elif mode == "content":
+        base += "Modalità SOCIAL: idee e script per YouTube TikTok.\n"
+    elif mode == "translate":
+        base += "Modalità TRADUZIONE: traduci correttamente.\n"
 
-def _mode_rules(mode: str) -> str:
-    m = (mode or "general").strip().lower()
-    if m == "study":
-        return (
-            "MODALITÀ STUDIO:\n"
-            "- Spiega come un tutor: passi chiari, esempi brevi.\n"
-            "- Se serve: fai domande per capire il livello.\n"
-            "- Dai mini-esercizi + soluzione.\n"
-            "- Per università: includi definizioni, formule (testo), dimostrazioni semplici.\n"
-        )
-    if m == "code":
-        return (
-            "MODALITÀ CODING:\n"
-            "- Scrivi codice completo e funzionante (HTML/CSS/JS), niente pezzi mancanti.\n"
-            "- Spiega poco ma chiaro: cosa fa, come eseguirlo.\n"
-            "- Se debug: indica errore → causa → fix.\n"
-            "- Segui best practices e sicurezza base.\n"
-        )
-    if m == "content":
-        return (
-            "MODALITÀ SOCIAL (YouTube/TikTok/Reels):\n"
-            "- Proponi idee forti (hook nei primi 2 secondi).\n"
-            "- Dai uno script pronto (intro, corpo, CTA), durata 15s/30s/60s.\n"
-            "- Suggerisci titolo, caption, hashtag, struttura video.\n"
-        )
-    if m == "translate":
-        return (
-            "MODALITÀ TRADUZIONE:\n"
-            "- Traduci fedelmente ma naturale.\n"
-            "- Se richiesto: versioni formale/informale.\n"
-            "- Correggi grammatica e proponi alternative.\n"
-        )
-    return (
-        "MODALITÀ GENERALE:\n"
-        "- Risposte utili, chiare, brevi.\n"
-        "- Se l'utente chiede studio/coding/social/traduzione, adattati automaticamente.\n"
-    )
+    if lang:
+        base += f"Lingua preferita dispositivo: {lang}\n"
+
+    return base
 
 
-def _build_system_prompt(preferred_lang: str, mode: str) -> str:
-    return (
-        "Sei ChatAI World: assistente AI multilingua super utile per studiare, programmare e creare contenuti.\n"
-        f"{_lang_hint(preferred_lang)}\n"
-        "REGOLE:\n"
-        "- Rispondi SENZA Markdown (niente **, niente elenchi lunghissimi). Testo semplice.\n"
-        "- Se l'utente chiede HTML/CSS/JS: fornisci codice completo pronto all'uso.\n"
-        "- Se l'utente studia: spiega passo-passo e proponi esercizi.\n"
-        "- Se l'utente crea contenuti: dai idee e script pronti per social.\n"
-        "- Se l'utente chiede traduzioni: traduci e correggi.\n"
-        "- Se una richiesta è pericolosa/illegale, rifiuta e proponi alternativa sicura.\n\n"
-        f"{_mode_rules(mode)}"
-    )
+def trim_memory(mem: List[Dict[str, str]]) -> List[Dict[str, str]]:
+    system = mem[0]
+    rest = mem[1:]
+    rest = rest[-(MAX_TURNS * 2):]
+    return [system] + rest
 
 
-def _get_or_init_memory(session_id: str, system_prompt: str) -> List[Dict[str, Any]]:
-    mem = CHAT_MEMORY.get(session_id)
-    if not mem:
-        mem = [{"role": "system", "content": system_prompt}]
-        CHAT_MEMORY[session_id] = mem
-    else:
-        # keep system message updated to current mode/lang
-        mem[0] = {"role": "system", "content": system_prompt}
-    return mem
-
-
-def _trim_memory(messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    # messages = [system] + history
-    system_msg = messages[0]
-    tail = messages[1:]
-    # keep last ~100 messages (50 turns ≈ user+assistant => 100 msgs)
-    tail = tail[-(MAX_MEMORY_MESSAGES * 2) :]
-    return [system_msg] + tail
-
-
-def _groq_chat(
-    groq_key: str,
-    model: str,
-    messages: List[Dict[str, Any]],
-    timeout_seconds: float,
-) -> Optional[str]:
+def groq_chat(api_key: str, model: str, messages: List[Dict[str, str]]) -> Optional[str]:
     url = "https://api.groq.com/openai/v1/chat/completions"
-    headers = {"Authorization": f"Bearer {groq_key}", "Content-Type": "application/json"}
-    body: Dict[str, Any] = {"model": model, "messages": messages, "temperature": 0.7}
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
 
-    resp = requests.post(url, headers=headers, json=body, timeout=timeout_seconds)
-
-    if resp.status_code != 200:
-        try:
-            payload = resp.json()
-        except Exception:
-            payload = {"raw": resp.text[:500]}
-        print(f"[GROQ] status={resp.status_code} payload={payload}")
-        return None
+    payload = {
+        "model": model,
+        "messages": messages,
+        "temperature": 0.7,
+    }
 
     try:
-        data = resp.json()
-        content = data["choices"][0]["message"]["content"]
-        return _sanitize_reply(content) if isinstance(content, str) else None
+        r = requests.post(url, headers=headers, json=payload, timeout=TIMEOUT_SECONDS)
+        if r.status_code != 200:
+            print("[GROQ ERROR]", r.text)
+            return None
+
+        data = r.json()
+        return clean_text(data["choices"][0]["message"]["content"])
     except Exception as e:
-        print(f"[GROQ] JSON parse error: {e} body={resp.text[:500]}")
+        print("[GROQ EXCEPTION]", e)
         return None
 
 
+# ================= ROUTES =================
 @app.route("/", methods=["GET"])
 def home():
-    return "🌍 ChatAI World API attiva (Groq + multi-lingua + modalità + memoria)!"
+    return "🌍 ChatAI World API attiva (Groq only)"
 
 
 @app.route("/reset", methods=["POST"])
 def reset():
     data = request.get_json(silent=True) or {}
-    session_id = str(data.get("session_id", "")).strip()
+    session_id = data.get("session_id")
     if session_id:
         CHAT_MEMORY.pop(session_id, None)
     return jsonify({"ok": True})
@@ -181,38 +111,43 @@ def reset():
 def chat():
     data = request.get_json(silent=True) or {}
 
-    session_id = str(data.get("session_id", "")).strip() or "default"
-    user_text = str(data.get("message", "")).strip()
-    preferred_lang = str(data.get("preferred_lang", "")).strip()  # from phone/browser
-    mode = str(data.get("mode", "general")).strip()
+    session_id = data.get("session_id", "default")
+    user_text = data.get("message", "").strip()
+    preferred_lang = data.get("preferred_lang", "")
+    mode = data.get("mode", "general")
 
     if not user_text:
-        return jsonify({"reply": "⚠️ Scrivi un messaggio."})
+        return jsonify({"reply": "Scrivi qualcosa."})
 
-    groq_key = _get_env(GROQ_API_KEY_ENV)
-    if not groq_key:
-        return jsonify({"reply": "❌ Manca GROQ_API_KEY su Render."})
+    api_key = get_env(GROQ_API_KEY_ENV)
+    if not api_key:
+        return jsonify({"reply": "Errore: manca GROQ_API_KEY su Render."})
 
-    model = _get_env(MODEL_ENV) or DEFAULT_MODEL
-    timeout_seconds = float(os.getenv("GROQ_TIMEOUT_SECONDS", str(DEFAULT_TIMEOUT_SECONDS)))
+    model = get_env(MODEL_ENV) or DEFAULT_MODEL
 
-    system_prompt = _build_system_prompt(preferred_lang, mode)
-    memory = _get_or_init_memory(session_id, system_prompt)
+    # inizializza memoria
+    if session_id not in CHAT_MEMORY:
+        CHAT_MEMORY[session_id] = [{
+            "role": "system",
+            "content": system_prompt(preferred_lang, mode)
+        }]
+
+    memory = CHAT_MEMORY[session_id]
+    memory[0]["content"] = system_prompt(preferred_lang, mode)
+
     memory.append({"role": "user", "content": user_text})
-    memory = _trim_memory(memory)
+    memory = trim_memory(memory)
 
-    print(f"[CHAT] session={session_id} lang={preferred_lang or '-'} mode={mode} model={model} msgs={len(memory)}")
-
-    reply = _groq_chat(groq_key, model, memory, timeout_seconds)
+    reply = groq_chat(api_key, model, memory)
     if not reply:
-        return jsonify({"reply": "❌ Nessuna AI disponibile (controlla Logs Render per 401/429/timeout)."} )
+        return jsonify({"reply": "Errore AI (controlla Render logs)."})
 
     memory.append({"role": "assistant", "content": reply})
-    CHAT_MEMORY[session_id] = _trim_memory(memory)
+    CHAT_MEMORY[session_id] = trim_memory(memory)
 
     return jsonify({"reply": reply})
-    
+
 
 if __name__ == "__main__":
-    port = int(os.getenv("PORT", "5000"))
+    port = int(os.getenv("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
