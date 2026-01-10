@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>🌍 ChatAI World</title>
   <style>
     body {
@@ -26,6 +26,8 @@
       flex: 1;
       overflow-y: auto;
       padding: 15px;
+      display: flex;
+      flex-direction: column;
     }
     .message {
       padding: 10px;
@@ -94,7 +96,7 @@
       chat.scrollTop = chat.scrollHeight;
     }
 
-    async function sendMessage() {
+    function sendMessage() {
       const input = document.getElementById("userInput");
       const text = input.value.trim();
       if (!text) return;
