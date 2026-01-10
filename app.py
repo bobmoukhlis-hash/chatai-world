@@ -12,28 +12,22 @@ from flask_cors import CORS
 app = Flask(__name__)
 CORS(app)
 
-# ======================
-# CONFIG
-# ======================
+# ===== Config =====
 GROQ_API_KEY_ENV = "GROQ_API_KEY"
 MODEL_ENV = "MODEL"
+VISION_MODEL_ENV = "VISION_MODEL"  # opzionale per foto
 
 DEFAULT_MODEL = "llama-3.3-70b-versatile"
-DEFAULT_TIMEOUT_SECONDS = 20.0
-MAX_MEMORY_MESSAGES = 50  # 👈 memoria reale
+DEFAULT_TIMEOUT_SECONDS = 25.0
+MAX_MEMORY_MESSAGES = 50  # memoria (coppie user/assistant)
 
-# ======================
-# MEMORY (per IP)
-# ======================
-CHAT_MEMORY: Dict[str, List[Dict[str, str]]] = {}
+# Memoria in RAM per session_id
+CHAT_MEMORY: Dict[str, List[Dict[str, Any]]] = {}
 
 
-# ======================
-# UTILS
-# ======================
 def _get_env(name: str) -> Optional[str]:
-    value = os.getenv(name)
-    return value.strip() if value and value.strip() else None
+    v = os.getenv(name)
+    return v.strip() if v and v.strip() else None
 
 
 def _sanitize_reply(text: str) -> str:
@@ -53,34 +47,43 @@ def _sanitize_reply(text: str) -> str:
     return s
 
 
-# ======================
-# ROUTES
-# ======================
 @app.route("/", methods=["GET"])
 def home():
-    return "🌍 ChatAI World API attiva con Groq + memoria!"
+    return "🌍 ChatAI World API attiva con Groq + mic/voce/foto!"
+
+
+def _build_system_prompt() -> str:
+    return (
+        "Sei ChatAI World. Rispondi in italiano, in testo semplice, senza Markdown. "
+        "Sii utile e diretto. Se l'utente invia una foto, descrivila e rispondi alla domanda."
+    )
+
+
+def _get_or_init_memory(session_id: str) -> List[Dict[str, Any]]:
+    if session_id not in CHAT_MEMORY:
+        CHAT_MEMORY[session_id] = [{"role": "system", "content": _build_system_prompt()}]
+    return CHAT_MEMORY[session_id]
+
+
+def _trim_memory(messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    # preserva system + ultimi 2*MAX_MEMORY_MESSAGES messaggi
+    system_msg = messages[0]
+    tail = messages[1:]
+    tail = tail[-(MAX_MEMORY_MESSAGES * 2) :]
+    return [system_msg] + tail
 
 
 def _groq_chat(
     groq_key: str,
     model: str,
-    messages: List[Dict[str, str]],
+    messages: List[Dict[str, Any]],
     timeout_seconds: float,
 ) -> Optional[str]:
     url = "https://api.groq.com/openai/v1/chat/completions"
-    headers = {
-        "Authorization": f"Bearer {groq_key}",
-        "Content-Type": "application/json",
-    }
-
-    body: Dict[str, Any] = {
-        "model": model,
-        "messages": messages,
-        "temperature": 0.7,
-    }
+    headers = {"Authorization": f"Bearer {groq_key}", "Content-Type": "application/json"}
+    body: Dict[str, Any] = {"model": model, "messages": messages, "temperature": 0.7}
 
     resp = requests.post(url, headers=headers, json=body, timeout=timeout_seconds)
-
     if resp.status_code != 200:
         try:
             payload = resp.json()
@@ -94,66 +97,71 @@ def _groq_chat(
         content = data["choices"][0]["message"]["content"]
         return _sanitize_reply(content) if isinstance(content, str) else None
     except Exception as e:
-        print(f"[GROQ] JSON parse error: {e}")
+        print(f"[GROQ] JSON parse error: {e} body={resp.text[:500]}")
         return None
+
+
+@app.route("/reset", methods=["POST"])
+def reset():
+    data = request.get_json(silent=True) or {}
+    session_id = str(data.get("session_id", "")).strip()
+    if session_id and session_id in CHAT_MEMORY:
+        CHAT_MEMORY.pop(session_id, None)
+    return jsonify({"ok": True})
 
 
 @app.route("/chat", methods=["POST"])
 def chat():
     data = request.get_json(silent=True) or {}
-    user_message = str(data.get("message", "")).strip()
-
-    if not user_message:
-        return jsonify({"reply": "⚠️ Messaggio vuoto."})
+    session_id = str(data.get("session_id", "")).strip() or "default"
+    user_text = str(data.get("message", "")).strip()
+    image_data = data.get("image_data")  # DataURL (string) o None
 
     groq_key = _get_env(GROQ_API_KEY_ENV)
-    model = (_get_env(MODEL_ENV) or DEFAULT_MODEL)
-    timeout_seconds = float(os.getenv("GROQ_TIMEOUT_SECONDS", DEFAULT_TIMEOUT_SECONDS))
-
     if not groq_key:
         return jsonify({"reply": "❌ Manca GROQ_API_KEY su Render."})
 
-    # 🔑 Identifica utente (IP)
-    user_id = request.remote_addr or "anonymous"
+    model = (_get_env(MODEL_ENV) or DEFAULT_MODEL)
+    vision_model = _get_env(VISION_MODEL_ENV)  # opzionale
+    timeout_seconds = float(os.getenv("GROQ_TIMEOUT_SECONDS", str(DEFAULT_TIMEOUT_SECONDS)))
 
-    # Inizializza memoria
-    if user_id not in CHAT_MEMORY:
-        CHAT_MEMORY[user_id] = [
-            {
-                "role": "system",
-                "content": (
-                    "Sei ChatAI World. Rispondi in italiano, in testo semplice, "
-                    "senza Markdown, con risposte chiare e naturali."
-                ),
-            }
-        ]
+    memory = _get_or_init_memory(session_id)
+    memory = _trim_memory(memory)
 
-    memory = CHAT_MEMORY[user_id]
+    # Costruisci messaggio user: testo + (eventuale) immagine
+    if image_data:
+        if not vision_model:
+            return jsonify(
+                {
+                    "reply": "📷 Foto ricevuta, ma la visione non è attiva. Imposta VISION_MODEL su Render per analizzare immagini.",
+                }
+            )
+        # Formato “vision” stile OpenAI: content come array (text + image_url)
+        user_content: List[Dict[str, Any]] = []
+        if user_text:
+            user_content.append({"type": "text", "text": user_text})
+        user_content.append({"type": "image_url", "image_url": {"url": image_data}})
+        memory.append({"role": "user", "content": user_content})
+        use_model = vision_model
+    else:
+        if not user_text:
+            return jsonify({"reply": "⚠️ Scrivi un messaggio o carica una foto."})
+        memory.append({"role": "user", "content": user_text})
+        use_model = model
 
-    # Aggiungi messaggio utente
-    memory.append({"role": "user", "content": user_message})
+    memory = _trim_memory(memory)
+    print(f"[ENV] session={session_id} model={use_model} msgs={len(memory)} img={'YES' if image_data else 'NO'}")
 
-    # Tieni solo ultimi 50 messaggi (escluso system)
-    system_msg = memory[0]
-    trimmed = [system_msg] + memory[-MAX_MEMORY_MESSAGES * 2 :]
-
-    print(f"[MEMORY] IP={user_id} messages={len(trimmed)} model={model}")
-
-    reply = _groq_chat(groq_key, model, trimmed, timeout_seconds)
-
+    reply = _groq_chat(groq_key, use_model, memory, timeout_seconds)
     if not reply:
-        return jsonify({"reply": "❌ Nessuna AI disponibile (controlla Logs Render)."})
+        return jsonify({"reply": "❌ Nessuna AI disponibile (controlla Logs Render per 401/429/timeout)."} )
 
-    # Salva risposta AI
-    trimmed.append({"role": "assistant", "content": reply})
-    CHAT_MEMORY[user_id] = trimmed
+    memory.append({"role": "assistant", "content": reply})
+    CHAT_MEMORY[session_id] = _trim_memory(memory)
 
     return jsonify({"reply": reply})
 
 
-# ======================
-# MAIN
-# ======================
 if __name__ == "__main__":
     port = int(os.getenv("PORT", "5000"))
     app.run(host="0.0.0.0", port=port)
