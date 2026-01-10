@@ -6,26 +6,27 @@ import requests
 app = Flask(__name__)
 CORS(app)
 
+# 🌍 Home page API
 @app.route('/')
 def home():
     return "🌍 ChatAI World API attiva con AI!"
 
-@app.route('/chat', methods=['POST'])
+# 💬 Endpoint principale per la chat
 @app.route('/chat', methods=['POST'])
 def chat():
     data = request.get_json()
     user_message = data.get("message", "")
+
     if not user_message:
         return jsonify({"reply": "⚠️ Messaggio vuoto."})
 
-    reply = f"🌍 Hai detto: {user_message}"
-    return jsonify({"reply": reply})
-
-    # 🔑 Leggi le chiavi dalle variabili d'ambiente su Render
+    # 🔑 Legge le chiavi dalle variabili d'ambiente su Render
     hf_key = os.getenv("HUGGINGFACE_API_KEY")
     groq_key = os.getenv("GROQ_API_KEY")
 
-    # ✅ Prova prima Hugging Face
+    reply = None  # inizializza
+
+    # ✅ Tenta risposta con Hugging Face
     if hf_key:
         try:
             response = requests.post(
@@ -39,12 +40,11 @@ def chat():
                     reply = output[0].get("generated_text", "🤖 Nessuna risposta generata.")
                 else:
                     reply = "⚙️ Nessuna risposta valida dal modello."
-                return jsonify({"reply": reply})
         except Exception as e:
-            print("Errore Hugging Face:", e)
+            print("❌ Errore Hugging Face:", e)
 
-    # 🔄 In caso di fallback su Groq
-    if groq_key:
+    # 🔁 Fallback su Groq se Hugging Face non risponde
+    if not reply and groq_key:
         try:
             response = requests.post(
                 "https://api.groq.com/openai/v1/chat/completions",
@@ -60,12 +60,16 @@ def chat():
             if response.status_code == 200:
                 data = response.json()
                 reply = data["choices"][0]["message"]["content"]
-                return jsonify({"reply": reply})
         except Exception as e:
-            print("Errore Groq:", e)
+            print("❌ Errore Groq:", e)
 
-    return jsonify({"reply": "❌ Nessuna AI disponibile al momento."})
+    # 🧠 Se nessuna AI disponibile
+    if not reply:
+        reply = "❌ Nessuna AI disponibile al momento."
+
+    return jsonify({"reply": reply})
 
 
-if if __name__ == "__main__":
+# 🚀 Avvio server (Render esegue automaticamente su 0.0.0.0)
+if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
