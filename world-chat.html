@@ -1,37 +1,134 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ChatAI World 🌍</title>
-<style>
-body { background:#0b1120; color:#fff; font-family:Arial; padding:20px; }
-#chat { max-width:600px; margin:auto; }
-.bubble { margin:10px; padding:10px; border-radius:8px; }
-.user { background:#1f2937; text-align:right; }
-.ai { background:#2563eb; }
-input { width:80%; padding:10px; border:none; border-radius:6px; }
-button { padding:10px; border:none; background:#38bdf8; border-radius:6px; }
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ChatAI Bob - Chat intelligente</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Poppins', sans-serif;
+      background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+    header {
+      background: rgba(0,0,0,0.7);
+      padding: 15px;
+      text-align: center;
+      font-size: 1.3em;
+      color: #00c9ff;
+    }
+    #chat-box {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      scroll-behavior: smooth;
+    }
+    .user, .bot {
+      padding: 10px 15px;
+      border-radius: 10px;
+      max-width: 80%;
+      line-height: 1.4;
+    }
+    .user {
+      background: #00c9ff;
+      color: #000;
+      align-self: flex-end;
+    }
+    .bot {
+      background: #1e293b;
+      border: 1px solid #00c9ff;
+      align-self: flex-start;
+    }
+    #input-area {
+      display: flex;
+      padding: 15px;
+      background: rgba(0,0,0,0.8);
+    }
+    #message {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      border-radius: 8px;
+      outline: none;
+      font-size: 1em;
+    }
+    button {
+      margin-left: 10px;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 8px;
+      background: linear-gradient(90deg, #00c9ff, #92fe9d);
+      font-weight: bold;
+      cursor: pointer;
+      transition: 0.3s;
+    }
+    button:hover {
+      transform: scale(1.05);
+      box-shadow: 0 0 8px #00c9ff;
+    }
+  </style>
 </head>
 <body>
-<h2>🌍 ChatAI World</h2>
-<div id="chat"></div>
-<input id="msg" placeholder="Scrivi qualcosa..." />
-<button onclick="send()">Invia</button>
+  <header>🤖 ChatAI Bob</header>
 
-<script>
-async function send(){
-  const msg = document.getElementById("msg").value;
-  document.getElementById("chat").innerHTML += `<div class='bubble user'>${msg}</div>`;
-  const res = await fetch("https://chatai-world.onrender.com/chat", {
-    method:"POST", headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({message: msg})
-  });
-  const data = await res.json();
-  document.getElementById("chat").innerHTML += `<div class='bubble ai'>${data.reply}</div>`;
-  document.getElementById("msg").value="";
-}
-</script>
+  <div id="chat-box"></div>
+
+  <div id="input-area">
+    <input type="text" id="message" placeholder="Scrivi un messaggio..." />
+    <button onclick="sendMessage()">Invia</button>
+  </div>
+
+  <script>
+    const chatBox = document.getElementById("chat-box");
+
+    // 👋 Messaggio di benvenuto automatico
+    window.onload = () => {
+      addMessage("bot", "👋 Ciao! Sono ChatAI Bob. Come posso aiutarti oggi?");
+    };
+
+    // ✉️ Invia messaggio utente e ricevi risposta AI
+    async function sendMessage() {
+      const msgInput = document.getElementById("message");
+      const message = msgInput.value.trim();
+      if (!message) return;
+
+      addMessage("user", message);
+      msgInput.value = "";
+
+      try {
+        const res = await fetch("https://chatai-world.onrender.com/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message })
+        });
+
+        const data = await res.json();
+        addMessage("bot", data.reply || "⚠️ Nessuna risposta dal server");
+      } catch (err) {
+        addMessage("bot", "❌ Errore di connessione al server.");
+      }
+    }
+
+    // 💬 Aggiunge messaggi nella chat
+    function addMessage(sender, text) {
+      const div = document.createElement("div");
+      div.className = sender;
+      div.textContent = text;
+      chatBox.appendChild(div);
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    // Premere Invio per inviare
+    document.getElementById("message").addEventListener("keypress", (e) => {
+      if (e.key === "Enter") sendMessage();
+    });
+  </script>
 </body>
 </html>
