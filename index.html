@@ -14,22 +14,15 @@
     .bot{background:#002a38;align-self:flex-start;border:1px solid rgba(56,189,248,.35)}
     #input-area{display:flex;flex-direction:column;gap:10px;padding:10px;background:#001520;border-top:1px solid #38bdf8}
     #row1{display:flex;gap:8px;align-items:center}
-    <div id="row3" style="display:flex; gap:8px; flex-wrap:wrap;">
-  <button class="ghost" onclick="setMode('general')">🌍 Generale</button>
-  <button class="ghost" onclick="setMode('study')">🎓 Studio</button>
-  <button class="ghost" onclick="setMode('code')">💻 Coding</button>
-  <button class="ghost" onclick="setMode('content')">🎬 Social</button>
-  <button class="ghost" onclick="setMode('translate')">🌐 Traduci</button>
-</div>
-    #row2{display:flex;gap:8px;align-items:center}
+    #row2{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    #row3{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
     input[type="text"]{flex:1;padding:12px;background:#002a38;color:#e0faff;border:none;border-radius:8px;outline:none;font-size:16px}
     button{border:none;color:#001018;font-weight:800;padding:12px 14px;border-radius:8px;cursor:pointer;transition:.2s;font-size:14px}
     button:active{transform:scale(.98)}
     .primary{background:#38bdf8}
-    .secondary{background:#4fd1c5}
     .ghost{background:transparent;border:1px solid rgba(56,189,248,.6);color:#e0faff}
     .toggle-on{box-shadow:0 0 0 2px rgba(79,209,197,.35) inset}
-    #preview{display:none;gap:10px;align-items:center}
+    #preview{display:none;gap:10px;align-items:center;flex-wrap:wrap}
     #preview img{max-height:64px;border-radius:10px;border:1px solid rgba(56,189,248,.35)}
     #hint{opacity:.85;font-size:12px}
     footer{padding:12px;text-align:center;background:#001520;border-top:1px solid #38bdf8}
@@ -53,16 +46,26 @@
     <button class="ghost" id="micBtn" title="Microfono on/off">🎙️ Mic: OFF</button>
     <button class="ghost" id="ttsBtn" title="Voce on/off">🔊 Voce: OFF</button>
     <button class="ghost" id="resetBtn" title="Reset conversazione">🧹 Nuova chat</button>
+
     <label class="ghost" style="padding:10px 12px;border-radius:8px;cursor:pointer;">
       📷 Foto
       <input id="imageInput" type="file" accept="image/*" style="display:none;" />
     </label>
   </div>
 
+  <!-- ✅ QUI è il posto GIUSTO per row3 -->
+  <div id="row3">
+    <button class="ghost mode-btn toggle-on" data-mode="general">🌍 Generale</button>
+    <button class="ghost mode-btn" data-mode="study">🎓 Studio</button>
+    <button class="ghost mode-btn" data-mode="code">💻 Coding</button>
+    <button class="ghost mode-btn" data-mode="content">🎬 Social</button>
+    <button class="ghost mode-btn" data-mode="translate">🌐 Traduci</button>
+  </div>
+
   <div id="preview">
     <img id="previewImg" alt="preview" />
     <button class="ghost" id="removeImgBtn">Rimuovi foto</button>
-    <div id="hint">La foto verrà inviata al server. Se il modello “vision” non è attivo, riceverai un messaggio.</div>
+    <div id="hint">La foto verrà inviata al server.</div>
   </div>
 </div>
 
@@ -72,6 +75,7 @@
 
 <script>
   const API_URL = "https://chatai-world.onrender.com";
+
   const chat = document.getElementById("chat");
   const input = document.getElementById("userInput");
   const sendBtn = document.getElementById("sendBtn");
@@ -83,7 +87,27 @@
   const previewImg = document.getElementById("previewImg");
   const removeImgBtn = document.getElementById("removeImgBtn");
 
-  // -------- Session (memoria 50 messaggi lato backend) --------
+  // ===== Mode (row3) =====
+  window.__CHAT_MODE__ = localStorage.getItem("chatai_mode") || "general";
+
+  function highlightMode(mode) {
+    document.querySelectorAll(".mode-btn").forEach(btn => {
+      btn.classList.toggle("toggle-on", btn.dataset.mode === mode);
+    });
+  }
+
+  function setMode(mode) {
+    window.__CHAT_MODE__ = mode;
+    localStorage.setItem("chatai_mode", mode);
+    highlightMode(mode);
+  }
+
+  document.querySelectorAll(".mode-btn").forEach(btn => {
+    btn.addEventListener("click", () => setMode(btn.dataset.mode));
+  });
+  highlightMode(window.__CHAT_MODE__);
+
+  // ===== Session =====
   const SESSION_KEY = "chatai_world_session_id";
   function getSessionId() {
     let id = localStorage.getItem(SESSION_KEY);
@@ -94,7 +118,7 @@
     return id;
   }
 
-  // -------- Voice (TTS) --------
+  // ===== TTS =====
   let voiceEnabled = false;
   function speak(text) {
     if (!voiceEnabled) return;
@@ -102,12 +126,12 @@
     try {
       window.speechSynthesis.cancel();
       const u = new SpeechSynthesisUtterance(text);
-      r.lang = navigator.language || "en-US";
+      u.lang = navigator.language || "en-US"; // ✅ u.lang (non r.lang)
       window.speechSynthesis.speak(u);
     } catch (_) {}
   }
 
-  // -------- Mic (Speech-to-text) --------
+  // ===== Mic (Speech-to-text) =====
   let recognizing = false;
   let recognition = null;
 
@@ -115,7 +139,7 @@
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) return null;
     const r = new SR();
-    r.lang = "it-IT";
+    r.lang = navigator.language || "en-US"; // ✅ lingua telefono
     r.continuous = false;
     r.interimResults = false;
 
@@ -147,7 +171,7 @@
 
   recognition = initSpeechRecognition();
 
-  // -------- Image upload --------
+  // ===== Image upload =====
   let imageDataUrl = null;
 
   function showPreview(dataUrl) {
@@ -160,7 +184,7 @@
     previewImg.src = "";
   }
 
-  imageInput.addEventListener("change", async () => {
+  imageInput.addEventListener("change", () => {
     const file = imageInput.files?.[0];
     if (!file) return;
     const reader = new FileReader();
@@ -177,7 +201,7 @@
     hidePreview();
   });
 
-  // -------- Chat UI helpers --------
+  // ===== UI helpers =====
   function addMessage(text, sender) {
     const div = document.createElement("div");
     div.classList.add("message", sender);
@@ -191,17 +215,17 @@
     const text = input.value.trim();
     if (!text && !imageDataUrl) return;
 
-    // Mostra messaggio utente
     addMessage(text || "📷 (immagine inviata)", "user");
     input.value = "";
 
-    // Placeholder bot
     const thinking = addMessage("💭 Sto pensando...", "bot");
 
     const payload = {
       session_id: getSessionId(),
       message: text || "",
-      image_data: imageDataUrl, // può essere null
+      image_data: imageDataUrl,
+      preferred_lang: navigator.language || "en-US",
+      mode: window.__CHAT_MODE__
     };
 
     try {
@@ -220,9 +244,7 @@
     }
   }
 
-  // -------- Reset chat --------
   async function resetChat() {
-    // UI reset
     chat.innerHTML = "";
     addMessage("🤖 Benvenuto su ChatAI World! Scrivi qualcosa per iniziare.", "bot");
     input.value = "";
@@ -230,7 +252,6 @@
     imageInput.value = "";
     hidePreview();
 
-    // backend reset session memory
     try {
       await fetch(`${API_URL}/reset`, {
         method: "POST",
@@ -240,47 +261,24 @@
     } catch (_) {}
   }
 
-  // -------- Wire events --------
+  // ===== Wire events =====
   sendBtn.addEventListener("click", sendMessage);
-  input.addEventListener("keypress", (e) => {
-    if (e.key === "Enter") sendMessage();
-  });
+  input.addEventListener("keypress", (e) => { if (e.key === "Enter") sendMessage(); });
 
   micBtn.addEventListener("click", () => {
-    if (!recognition) {
-      addMessage("❌ Microfono non supportato su questo browser.", "bot");
-      return;
-    }
-    if (recognizing) {
-      recognition.stop();
-    } else {
-      recognition.start();
-    }
+    if (!recognition) return addMessage("❌ Microfono non supportato su questo browser.", "bot");
+    if (recognizing) recognition.stop();
+    else recognition.start();
   });
 
   ttsBtn.addEventListener("click", () => {
     voiceEnabled = !voiceEnabled;
-    if (voiceEnabled) {
-      ttsBtn.classList.add("toggle-on");
-      ttsBtn.textContent = "🔊 Voce: ON";
-    } else {
-      ttsBtn.classList.remove("toggle-on");
-      ttsBtn.textContent = "🔊 Voce: OFF";
-      try { window.speechSynthesis?.cancel?.(); } catch (_) {}
-    }
+    ttsBtn.classList.toggle("toggle-on", voiceEnabled);
+    ttsBtn.textContent = voiceEnabled ? "🔊 Voce: ON" : "🔊 Voce: OFF";
+    if (!voiceEnabled) { try { window.speechSynthesis.cancel(); } catch (_) {} }
   });
 
   resetBtn.addEventListener("click", resetChat);
-<script>
-  window.__CHAT_MODE__ = "general";
-
-  function setMode(m) {
-    window.__CHAT_MODE__ = m;
-
-    // feedback visivo opzionale
-    document.querySelectorAll('#row3 button').forEach(b => b.classList.remove('toggle-on'));
-    event.target.classList.add('toggle-on');
-  }
 </script>
 </body>
 </html>
