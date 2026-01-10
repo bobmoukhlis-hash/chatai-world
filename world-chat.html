@@ -24,7 +24,7 @@ button { padding:10px; border:none; background:#38bdf8; border-radius:6px; }
 async function send(){
   const msg = document.getElementById("msg").value;
   document.getElementById("chat").innerHTML += `<div class='bubble user'>${msg}</div>`;
-  const res = await fetch("https://TUO-RENDER-APP.onrender.com/chat", {
+  const res = await fetch("https://chatai-world.onrender.com/chat", {
     method:"POST", headers:{"Content-Type":"application/json"},
     body:JSON.stringify({message: msg})
   });
