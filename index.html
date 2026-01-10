@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>🌍 ChatAI World</title>
+
   <style>
     body {
       background: #001018;
@@ -14,6 +15,7 @@
       height: 100vh;
       margin: 0;
     }
+
     header {
       background: linear-gradient(90deg, #00bcd4, #38bdf8);
       color: #001018;
@@ -22,6 +24,7 @@
       font-weight: bold;
       font-size: 22px;
     }
+
     #chat {
       flex: 1;
       overflow-y: auto;
@@ -29,27 +32,33 @@
       display: flex;
       flex-direction: column;
     }
+
     .message {
       padding: 10px;
       margin: 10px;
       border-radius: 10px;
       max-width: 80%;
+      word-wrap: break-word;
     }
+
     .user {
       background: #38bdf8;
       color: #001018;
       align-self: flex-end;
     }
+
     .bot {
       background: #002a38;
       align-self: flex-start;
     }
+
     #input-area {
       display: flex;
       padding: 10px;
       background: #001520;
       border-top: 1px solid #38bdf8;
     }
+
     input {
       flex: 1;
       padding: 12px;
@@ -58,7 +67,9 @@
       border: none;
       border-radius: 6px;
       outline: none;
+      font-size: 16px;
     }
+
     button {
       background: #38bdf8;
       border: none;
@@ -69,12 +80,15 @@
       border-radius: 6px;
       cursor: pointer;
       transition: 0.3s;
+      font-size: 16px;
     }
+
     button:hover {
       background: #4fd1c5;
     }
   </style>
 </head>
+
 <body>
   <header>🌍 ChatAI World – Chat intelligente su persone e mondo</header>
 
@@ -86,9 +100,11 @@
   </div>
 
   <script>
-    const API_URL = "https://chatai-world.onrender.com"; // ✅ tuo backend attivo
+    // 🌐 URL del tuo backend attivo su Render
+    const API_URL = "https://chatai-world.onrender.com";
     const chat = document.getElementById("chat");
 
+    // Aggiunge messaggio alla chat
     function addMessage(text, sender) {
       const div = document.createElement("div");
       div.classList.add("message", sender);
@@ -97,6 +113,7 @@
       chat.scrollTop = chat.scrollHeight;
     }
 
+    // Invia messaggio all'API
     async function sendMessage() {
       const input = document.getElementById("userInput");
       const text = input.value.trim();
@@ -114,11 +131,20 @@
         });
 
         const data = await response.json();
-        document.querySelector(".bot:last-child").textContent = data.reply || "⚠️ Nessuna risposta dal server.";
+        const botMessages = document.querySelectorAll(".bot");
+        botMessages[botMessages.length - 1].textContent =
+          data.reply || "⚠️ Nessuna risposta dal server.";
       } catch (error) {
-        document.querySelector(".bot:last-child").textContent = "❌ Errore di connessione con l'API.";
+        const botMessages = document.querySelectorAll(".bot");
+        botMessages[botMessages.length - 1].textContent =
+          "❌ Errore di connessione con l'API.";
       }
     }
+
+    // Premi Invio per inviare
+    document.getElementById("userInput").addEventListener("keypress", function(e) {
+      if (e.key === "Enter") sendMessage();
+    });
   </script>
 </body>
 </html>
