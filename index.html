@@ -14,6 +14,13 @@
     .bot{background:#002a38;align-self:flex-start;border:1px solid rgba(56,189,248,.35)}
     #input-area{display:flex;flex-direction:column;gap:10px;padding:10px;background:#001520;border-top:1px solid #38bdf8}
     #row1{display:flex;gap:8px;align-items:center}
+    <div id="row3" style="display:flex; gap:8px; flex-wrap:wrap;">
+  <button class="ghost" onclick="setMode('general')">🌍 Generale</button>
+  <button class="ghost" onclick="setMode('study')">🎓 Studio</button>
+  <button class="ghost" onclick="setMode('code')">💻 Coding</button>
+  <button class="ghost" onclick="setMode('content')">🎬 Social</button>
+  <button class="ghost" onclick="setMode('translate')">🌐 Traduci</button>
+</div>
     #row2{display:flex;gap:8px;align-items:center}
     input[type="text"]{flex:1;padding:12px;background:#002a38;color:#e0faff;border:none;border-radius:8px;outline:none;font-size:16px}
     button{border:none;color:#001018;font-weight:800;padding:12px 14px;border-radius:8px;cursor:pointer;transition:.2s;font-size:14px}
@@ -264,6 +271,16 @@
   });
 
   resetBtn.addEventListener("click", resetChat);
+<script>
+  window.__CHAT_MODE__ = "general";
+
+  function setMode(m) {
+    window.__CHAT_MODE__ = m;
+
+    // feedback visivo opzionale
+    document.querySelectorAll('#row3 button').forEach(b => b.classList.remove('toggle-on'));
+    event.target.classList.add('toggle-on');
+  }
 </script>
 </body>
 </html>
