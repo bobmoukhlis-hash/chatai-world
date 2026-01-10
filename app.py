@@ -1,8 +1,8 @@
 from flask import Flask, request, jsonify
-from flask_cors import CORS  # ✅ permette al sito GitHub di comunicare
+from flask_cors import CORS
 
 app = Flask(__name__)
-CORS(app)  # ✅ abilita tutte le origini (GitHub, Render, ecc.)
+CORS(app)  # 🔥 permette a GitHub Pages di inviare richieste al backend
 
 @app.route('/')
 def home():
@@ -19,7 +19,7 @@ def chat():
     if "ciao" in user_message:
         reply = "👋 Ciao! Come posso aiutarti oggi?"
     elif "mondo" in user_message:
-        reply = "🌍 Il mondo è un posto affascinante, in continua evoluzione!"
+        reply = "🌍 Il mondo sarà pieno di cambiamenti, innovazioni e nuove scoperte!"
     else:
         reply = f"🤖 Hai detto: {user_message}"
 
