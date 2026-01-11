@@ -115,7 +115,12 @@ def chat():
     user_text = data.get("message", "").strip()
     preferred_lang = data.get("preferred_lang", "")
     mode = data.get("mode", "general")
+image_data = data.get("image_data")
 
+    if image_data and not user_text:
+        return jsonify({
+            "reply": "📷 Ho ricevuto la foto, ma al momento posso analizzarla solo se mi descrivi cosa contiene."
+        })
     if not user_text:
         return jsonify({"reply": "Scrivi qualcosa."})
 
