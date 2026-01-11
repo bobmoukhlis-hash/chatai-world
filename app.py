@@ -133,10 +133,21 @@ image_data = data.get("image_data")
     # inizializza memoria
     if session_id not in CHAT_MEMORY:
         CHAT_MEMORY[session_id] = [{
+            STATS = {
+    "messages": 0,
+    "languages": {},
+    "modes": {},
+    "sessions": set()
+        }
             "role": "system",
             "content": system_prompt(preferred_lang, mode)
         }]
+STATS["messages"] += 1
+STATS["sessions"].add(session_id)
 
+lang = preferred_lang.split("-")[0] if preferred_lang else "unknown"
+STATS["languages"][lang] = STATS["languages"].get(lang, 0) + 1
+STATS["modes"][mode] = STATS["modes"].get(mode, 0) + 1
     memory = CHAT_MEMORY[session_id]
     memory[0]["content"] = system_prompt(preferred_lang, mode)
 
@@ -156,3 +167,15 @@ image_data = data.get("image_data")
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
+@app.route("/admin", methods=["GET"])
+def admin():
+    key = request.args.get("key")
+    if key != os.getenv("ADMIN_KEY", "secret"):
+        return "Accesso negato", 403
+
+    return jsonify({
+        "messages": STATS["messages"],
+        "sessions": len(STATS["sessions"]),
+        "languages": STATS["languages"],
+        "modes": STATS["modes"],
+    })
