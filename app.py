@@ -111,18 +111,17 @@ def reset():
 def chat():
     data = request.get_json(silent=True) or {}
 
-    session_id = data.get("session_id", "default")
-    user_text = data.get("message", "").strip()
-    preferred_lang = data.get("preferred_lang", "")
-    mode = data.get("mode", "general")
-image_data = data.get("image_data")
+    session_id = str(data.get("session_id", "")).strip() or "default"
+    user_text = str(data.get("message", "")).strip()
+    image_data = data.get("image_data")  # <-- QUI
+    preferred_lang = str(data.get("preferred_lang", "")).strip()
+    mode = str(data.get("mode", "general")).strip()
 
+    # 📷 SOLO FOTO (nessun testo)
     if image_data and not user_text:
         return jsonify({
-            "reply": "📷 Ho ricevuto la foto, ma al momento posso analizzarla solo se mi descrivi cosa contiene."
+            "reply": "📷 Ho ricevuto la foto. Al momento non posso analizzarla visivamente. Descrivimi cosa vedi e ti aiuterò."
         })
-    if not user_text:
-        return jsonify({"reply": "Scrivi qualcosa."})
 
     api_key = get_env(GROQ_API_KEY_ENV)
     if not api_key:
