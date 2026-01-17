@@ -2,10 +2,9 @@ from __future__ import annotations
 
 import os
 import re
-from typing import Any, Dict, List, Optional
-
 import requests
-from flask import Flask, jsonify, request
+from typing import Any, Dict, List
+from flask import Flask, request, jsonify
 from flask_cors import CORS
 
 # ---------------- APP ----------------
@@ -13,75 +12,89 @@ app = Flask(__name__)
 CORS(app)
 
 # ---------------- CONFIG ----------------
-OPENROUTER_API_KEY_ENV = "OPENROUTER_API_KEY"
-MODEL_ENV = "MODEL"
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "").strip()
+MODEL = os.getenv("MODEL", "openai/gpt-4o-mini")
+TIMEOUT = float(os.getenv("OPENROUTER_TIMEOUT", "25"))
 
-DEFAULT_MODEL = "openai/gpt-4o-mini"
-DEFAULT_TIMEOUT_SECONDS = 30.0
-MAX_MEMORY_MESSAGES = 50
-
+MAX_MEMORY_MESSAGES = 40  # 40 turni
 CHAT_MEMORY: Dict[str, List[Dict[str, Any]]] = {}
 
+OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
+
 # ---------------- UTILS ----------------
-def _get_env(name: str) -> Optional[str]:
-    v = os.getenv(name)
-    return v.strip() if v and v.strip() else None
+def sanitize(text: str) -> str:
+    if not text:
+        return ""
+    text = re.sub(r"```.*?```", "", text, flags=re.S)
+    text = re.sub(r"`([^`]*)`", r"\1", text)
+    return text.strip()
 
 
-def _sanitize_reply(text: str) -> str:
-    s = text
-    s = re.sub(r"```(?:\w+)?\n([\s\S]*?)```", r"\1", s)
-    s = re.sub(r"`([^`]*)`", r"\1", s)
-    s = s.replace("**", "").replace("__", "")
-    s = re.sub(r"\n{3,}", "\n\n", s)
-    return s.strip()
-
-
-def _build_system_prompt(lang: str, mode: str) -> str:
-    return (
-        "Sei ChatAI World, un assistente AI utile.\n"
-        f"Rispondi nella lingua dell'utente ({lang}).\n"
-        "Niente markdown.\n"
-        "Testo semplice.\n"
-        f"Modalità: {mode}\n"
+def system_prompt(lang: str, mode: str) -> str:
+    base = (
+        "Sei ChatAI World, un assistente AI utile e affidabile.\n"
+        "Regole:\n"
+        "- Risposte chiare e semplici\n"
+        "- Niente markdown\n"
+        "- Aiuta sempre l'utente\n"
     )
 
+    if lang:
+        base += f"Rispondi nella lingua dell'utente ({lang}).\n"
 
-def _get_or_init_memory(session_id: str, system_prompt: str):
-    mem = CHAT_MEMORY.get(session_id)
-    if not mem:
-        mem = [{"role": "system", "content": system_prompt}]
-        CHAT_MEMORY[session_id] = mem
+    mode = (mode or "general").lower()
+    if mode == "study":
+        base += "Modalità Studio: spiega passo passo con esempi.\n"
+    elif mode == "code":
+        base += "Modalità Coding: fornisci codice funzionante e spiegazioni brevi.\n"
+    elif mode == "content":
+        base += "Modalità Social: crea contenuti pronti, titoli e CTA.\n"
+    elif mode == "translate":
+        base += "Modalità Traduzione: traduci in modo naturale.\n"
+
+    return base
+
+
+def get_memory(session_id: str, system_msg: str):
+    if session_id not in CHAT_MEMORY:
+        CHAT_MEMORY[session_id] = [{"role": "system", "content": system_msg}]
     else:
-        mem[0]["content"] = system_prompt
-    return mem
+        CHAT_MEMORY[session_id][0] = {"role": "system", "content": system_msg}
+
+    CHAT_MEMORY[session_id] = (
+        CHAT_MEMORY[session_id][:1]
+        + CHAT_MEMORY[session_id][1:][-MAX_MEMORY_MESSAGES * 2 :]
+    )
+    return CHAT_MEMORY[session_id]
 
 
-def _trim_memory(messages):
-    return [messages[0]] + messages[-(MAX_MEMORY_MESSAGES * 2):]
-
-
-def _openrouter_chat(api_key, model, messages, timeout):
-    url = "https://openrouter.ai/api/v1/chat/completions"
+def call_openrouter(messages: list) -> str | None:
     headers = {
-        "Authorization": f"Bearer {api_key}",
+        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
         "Content-Type": "application/json",
         "HTTP-Referer": "https://chatai-world.onrender.com",
         "X-Title": "ChatAI World",
     }
 
     payload = {
-        "model": model,
+        "model": MODEL,
         "messages": messages,
         "temperature": 0.7,
     }
 
-    r = requests.post(url, headers=headers, json=payload, timeout=timeout)
+    r = requests.post(
+        OPENROUTER_URL,
+        headers=headers,
+        json=payload,
+        timeout=TIMEOUT,
+    )
+
     if r.status_code != 200:
-        print("OPENROUTER ERROR:", r.text)
+        print("OpenRouter error:", r.status_code, r.text[:300])
         return None
 
-    return _sanitize_reply(r.json()["choices"][0]["message"]["content"])
+    data = r.json()
+    return sanitize(data["choices"][0]["message"]["content"])
 
 
 # ---------------- ROUTES ----------------
@@ -93,49 +106,47 @@ def home():
 @app.route("/reset", methods=["POST"])
 def reset():
     data = request.get_json(silent=True) or {}
-    CHAT_MEMORY.pop(data.get("session_id"), None)
+    sid = str(data.get("session_id", "")).strip()
+    if sid:
+        CHAT_MEMORY.pop(sid, None)
     return jsonify({"ok": True})
 
 
 @app.route("/chat", methods=["POST"])
 def chat():
+    if not OPENROUTER_API_KEY:
+        return jsonify({"reply": "❌ OPENROUTER_API_KEY mancante su Render"})
+
     data = request.get_json(silent=True) or {}
 
     session_id = str(data.get("session_id", "default"))
-    message = str(data.get("message", "")).strip()
+    user_text = str(data.get("message", "")).strip()
     image_data = data.get("image_data")
-    lang = data.get("preferred_lang", "it")
-    mode = data.get("mode", "general")
+    lang = str(data.get("preferred_lang", ""))
+    mode = str(data.get("mode", "general"))
 
-    if image_data and not message:
+    if image_data and not user_text:
         return jsonify({
-            "reply": "📷 Foto ricevuta. Posso descriverla se mi spieghi cosa mostra."
+            "reply": "📷 Ho ricevuto la foto. Al momento posso solo lavorare sul testo. Descrivimi cosa vedi."
         })
 
-    if not message:
+    if not user_text:
         return jsonify({"reply": "⚠️ Scrivi un messaggio."})
 
-    api_key = _get_env(OPENROUTER_API_KEY_ENV)
-    if not api_key:
-        return jsonify({"reply": "❌ OPENROUTER_API_KEY mancante su Render."})
+    sys_msg = system_prompt(lang, mode)
+    memory = get_memory(session_id, sys_msg)
 
-    model = _get_env(MODEL_ENV) or DEFAULT_MODEL
-    timeout = float(os.getenv("TIMEOUT", DEFAULT_TIMEOUT_SECONDS))
+    memory.append({"role": "user", "content": user_text})
 
-    system_prompt = _build_system_prompt(lang, mode)
-    memory = _get_or_init_memory(session_id, system_prompt)
-
-    memory.append({"role": "user", "content": message})
-    memory = _trim_memory(memory)
-
-    reply = _openrouter_chat(api_key, model, memory, timeout)
+    reply = call_openrouter(memory)
     if not reply:
-        return jsonify({"reply": "❌ Errore AI."})
+        return jsonify({"reply": "❌ Errore AI. Controlla i log su Render."})
 
     memory.append({"role": "assistant", "content": reply})
     return jsonify({"reply": reply})
 
 
+# ---------------- RUN ----------------
 if __name__ == "__main__":
-    port = int(os.getenv("PORT", 5000))
+    port = int(os.getenv("PORT", "5000"))
     app.run(host="0.0.0.0", port=port)
