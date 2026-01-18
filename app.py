@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import json
 import os
 import time
@@ -16,7 +17,13 @@ from flask_sock import Sock
 # =========================
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "").strip()
-MODEL = os.getenv("MODEL", "llama-3.3-70b-versatile").strip()
+
+# Modello per chat testo (WS streaming)
+MODEL_TEXT = os.getenv("MODEL_TEXT", "llama-3.3-70b-versatile").strip()
+
+# Modello per immagini (Vision)
+MODEL_VISION = os.getenv("MODEL_VISION", "llama-3.2-vision-preview").strip()
+
 GROQ_URL = os.getenv("GROQ_URL", "https://api.groq.com/openai/v1/chat/completions").strip()
 DEFAULT_TIMEOUT_SECONDS = 30
 
@@ -27,15 +34,17 @@ SYSTEM_PROMPT = (
 )
 
 # =========================
-# Global state (demo)
+# Global state (demo RAM)
 # =========================
 
-memory: Dict[str, List[Dict[str, str]]] = defaultdict(list)
+memory: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
 MAX_TURNS = 12
 
 rate_limit: Dict[str, List[float]] = {}
 MAX_REQ = 30
 WINDOW = 60
+
+MAX_IMAGE_BYTES = 5 * 1024 * 1024  # 5MB
 
 # =========================
 # App
@@ -51,12 +60,11 @@ CORS(
     allow_headers=["Content-Type", "Authorization"],
 )
 
-@app.get("/")
-def home():
-    return jsonify({"status": "ok", "service": "ChatAI World API", "provider": "groq"}), 200
+# =========================
+# Helpers
+# =========================
 
-
-def _apply_rate_limit(session_id: str):
+def _apply_rate_limit(session_id: str) -> bool:
     now = time.time()
     hits = rate_limit.get(session_id, [])
     hits = [t for t in hits if now - t < WINDOW]
@@ -67,17 +75,54 @@ def _apply_rate_limit(session_id: str):
     return True
 
 
-def _build_messages(session_id: str, user_text: str) -> List[Dict[str, str]]:
-    history = memory[session_id]
-    history.append({"role": "user", "content": user_text})
-    history = history[-MAX_TURNS:]
-    memory[session_id] = history
-    return [{"role": "system", "content": SYSTEM_PROMPT}, *history]
-
-
-def _save_assistant(session_id: str, reply: str):
-    memory[session_id].append({"role": "assistant", "content": reply})
+def _trim_history(session_id: str) -> None:
     memory[session_id] = memory[session_id][-MAX_TURNS:]
+
+
+def _append_user(session_id: str, user_text: str) -> None:
+    memory[session_id].append({"role": "user", "content": user_text})
+    _trim_history(session_id)
+
+
+def _append_assistant(session_id: str, reply: str) -> None:
+    memory[session_id].append({"role": "assistant", "content": reply})
+    _trim_history(session_id)
+
+
+def _headers() -> Dict[str, str]:
+    return {
+        "Authorization": f"Bearer {GROQ_API_KEY}",
+        "Content-Type": "application/json",
+    }
+
+
+def _groq_stream_sse(headers: Dict[str, str], payload: Dict[str, Any]):
+    # Stream SSE: linee "data: {...}" e "data: [DONE]"
+    with requests.post(
+        GROQ_URL,
+        headers=headers,
+        json=payload,
+        stream=True,
+        timeout=DEFAULT_TIMEOUT_SECONDS,
+    ) as r:
+        r.raise_for_status()
+        for raw in r.iter_lines(decode_unicode=True):
+            if not raw:
+                continue
+            if raw.startswith("data: "):
+                data = raw[6:].strip()
+                if data == "[DONE]":
+                    return
+                yield data
+
+
+# =========================
+# Routes
+# =========================
+
+@app.get("/")
+def home():
+    return jsonify({"status": "ok", "service": "ChatAI World API", "provider": "groq"}), 200
 
 
 @app.post("/reset")
@@ -110,23 +155,21 @@ def chat():
     if not _apply_rate_limit(session_id):
         return jsonify({"reply": "⛔ Troppi messaggi, rallenta un attimo.", "session_id": session_id}), 429
 
-    messages = _build_messages(session_id, user_text)
-
-    headers = {
-        "Authorization": f"Bearer {GROQ_API_KEY}",
-        "Content-Type": "application/json",
-    }
+    _append_user(session_id, user_text)
 
     payload = {
-        "model": MODEL,
-        "messages": messages,
+        "model": MODEL_TEXT,
+        "messages": [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            *memory[session_id],
+        ],
         "temperature": 0.7,
     }
 
     try:
         resp = requests.post(
             GROQ_URL,
-            headers=headers,
+            headers=_headers(),
             json=payload,
             timeout=DEFAULT_TIMEOUT_SECONDS,
         )
@@ -149,33 +192,92 @@ def chat():
     except Exception as e:
         return jsonify({"reply": f"❌ Risposta Groq non valida: {e}", "session_id": session_id}), 502
 
-    _save_assistant(session_id, reply)
+    _append_assistant(session_id, reply)
     return jsonify({"reply": reply, "session_id": session_id}), 200
 
 
-def _groq_stream_sse(headers: Dict[str, str], payload: Dict[str, Any]):
-    # Stream SSE OpenAI-like: linee "data: {...}" e "data: [DONE]"
-    with requests.post(
-        GROQ_URL,
-        headers=headers,
-        json=payload,
-        stream=True,
-        timeout=DEFAULT_TIMEOUT_SECONDS,
-    ) as r:
-        r.raise_for_status()
-        for raw in r.iter_lines(decode_unicode=True):
-            if not raw:
-                continue
-            if raw.startswith("data: "):
-                data = raw[6:].strip()
-                if data == "[DONE]":
-                    return
-                yield data
+@app.post("/chat-image")
+def chat_image():
+    if not GROQ_API_KEY:
+        return jsonify({"reply": "❌ GROQ_API_KEY mancante su Render"}), 500
+
+    if "image" not in request.files:
+        return jsonify({"reply": "❌ Nessuna immagine caricata"}), 400
+
+    image = request.files["image"]
+    user_text = str(request.form.get("message", "")).strip()
+    session_id = str(request.form.get("session_id", "")).strip() or "default"
+
+    if not _apply_rate_limit(session_id):
+        return jsonify({"reply": "⛔ Troppi messaggi, rallenta un attimo.", "session_id": session_id}), 429
+
+    # Leggi bytes immagine + limite dimensione
+    img_bytes = image.read()
+    if len(img_bytes) > MAX_IMAGE_BYTES:
+        return jsonify({"reply": "❌ Immagine troppo grande (max 5MB).", "session_id": session_id}), 413
+
+    # (Opzionale) controllo MIME base
+    mime = (image.mimetype or "").lower()
+    if mime not in ("image/jpeg", "image/png", "image/webp"):
+        return jsonify({"reply": "❌ Formato non supportato. Usa JPG/PNG/WebP.", "session_id": session_id}), 400
+
+    # Metti anche il testo in memory (così “ricorda”)
+    if user_text:
+        _append_user(session_id, user_text)
+    else:
+        _append_user(session_id, "Descrivi questa immagine.")
+
+    img_b64 = base64.b64encode(img_bytes).decode("utf-8")
+
+    # Messaggi: system + history + ultimo user con immagine
+    messages: List[Dict[str, Any]] = [
+        {"role": "system", "content": SYSTEM_PROMPT},
+        *memory[session_id][:-1],  # tutto tranne ultimo user già aggiunto sopra
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": user_text or "Descrivi questa immagine."},
+                {
+                    "type": "image_url",
+                    "image_url": {"url": f"data:{mime};base64,{img_b64}"},
+                },
+            ],
+        },
+    ]
+
+    payload = {
+        "model": MODEL_VISION,
+        "messages": messages,
+        "temperature": 0.6,
+    }
+
+    try:
+        resp = requests.post(
+            GROQ_URL,
+            headers=_headers(),
+            json=payload,
+            timeout=DEFAULT_TIMEOUT_SECONDS,
+        )
+        if not resp.ok:
+            detail = ""
+            try:
+                detail = resp.json().get("error", {}).get("message", "")
+            except Exception:
+                detail = resp.text[:300]
+            return jsonify({"reply": f"❌ Vision HTTP {resp.status_code}: {detail}".strip(), "session_id": session_id}), 502
+
+        data_out = resp.json()
+        reply = data_out["choices"][0]["message"]["content"]
+    except Exception as e:
+        return jsonify({"reply": f"❌ Errore Vision: {e}", "session_id": session_id}), 502
+
+    _append_assistant(session_id, reply)
+    return jsonify({"reply": reply, "session_id": session_id}), 200
 
 
 @sock.route("/ws")
 def ws_chat(ws):
-    # Attende un JSON: {"session_id":"...", "message":"..."}
+    # Riceve JSON: {"session_id":"...", "message":"..."}
     if not GROQ_API_KEY:
         ws.send(json.dumps({"type": "error", "message": "GROQ_API_KEY mancante"}))
         return
@@ -200,23 +302,21 @@ def ws_chat(ws):
         ws.send(json.dumps({"type": "error", "message": "Troppi messaggi, rallenta"}))
         return
 
-    messages = _build_messages(session_id, user_text)
-
-    headers = {
-        "Authorization": f"Bearer {GROQ_API_KEY}",
-        "Content-Type": "application/json",
-    }
+    _append_user(session_id, user_text)
 
     payload = {
-        "model": MODEL,
-        "messages": messages,
+        "model": MODEL_TEXT,
+        "messages": [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            *memory[session_id],
+        ],
         "temperature": 0.7,
         "stream": True,
     }
 
-    full = []
+    full: List[str] = []
     try:
-        for chunk in _groq_stream_sse(headers, payload):
+        for chunk in _groq_stream_sse(_headers(), payload):
             try:
                 j = json.loads(chunk)
                 delta = j.get("choices", [{}])[0].get("delta", {}).get("content", "")
@@ -228,7 +328,7 @@ def ws_chat(ws):
 
         reply = "".join(full).strip()
         if reply:
-            _save_assistant(session_id, reply)
+            _append_assistant(session_id, reply)
 
         ws.send(json.dumps({"type": "done"}))
     except Exception as e:
