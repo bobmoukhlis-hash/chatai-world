@@ -360,15 +360,25 @@ async function send() {
 
     // ===== SOLO TESTO =====
     const res = await fetch(HTTP_API, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ session_id: sessionId, message: text })
-    });
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ session_id: sessionId, message: text })
+});
 
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.reply || "Errore server");
+const raw = await res.text();   // 👈 QUI
+let data;
 
-    botBubble.innerHTML = marked.parse(data.reply);
+try {
+  data = JSON.parse(raw);
+} catch {
+  throw new Error("Risposta non JSON dal server");
+}
+
+if (!res.ok) {
+  throw new Error(data.reply || "Errore server");
+}
+
+botBubble.innerHTML = marked.parse(data.reply);
 
   } catch (err) {
     botBubble.textContent = err.message || "❌ Errore imprevisto";
