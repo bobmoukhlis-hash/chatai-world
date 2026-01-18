@@ -1,22 +1,59 @@
 <!DOCTYPE html>
-<html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ChatAI World</title>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      background: #f5f5f5;
+      padding: 20px;
+    }
+    textarea {
+      width: 100%;
+      height: 80px;
+      font-size: 16px;
+    }
+    button {
+      margin-top: 10px;
+      padding: 10px 16px;
+      font-size: 16px;
+    }
+    pre {
+      margin-top: 15px;
+      background: #111;
+      color: #0f0;
+      padding: 10px;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
 <body>
-<input id="t">
+
+<h2>🤖 ChatAI World</h2>
+
+<textarea id="t" placeholder="Scrivi qui..."></textarea>
+<br>
 <button onclick="go()">Invia</button>
+
 <pre id="o"></pre>
 
 <script>
-async function go(){
-  const r = await fetch("https://chatai-world.onrender.com/chat",{
-    method:"POST",
-    headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({
-      session_id:"test",
-      message:document.getElementById("t").value
+async function go() {
+  document.getElementById("o").textContent = "⏳ Attendo risposta...";
+  const r = await fetch("https://chatai-world.onrender.com/chat", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({
+      session_id: "test",
+      message: document.getElementById("t").value
     })
   });
-  document.getElementById("o").textContent = JSON.stringify(await r.json(),null,2);
+  document.getElementById("o").textContent =
+    JSON.stringify(await r.json(), null, 2);
 }
 </script>
+
 </body>
 </html>
