@@ -1,15 +1,18 @@
-# app.py
 from __future__ import annotations
 
 import os
 from typing import Any, Dict
+from collections import defaultdict   # ✅ QUI
 
 import requests
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 
-app = Flask(__name__)
+# 🧠 MEMORY (QUI, PRIMA DI Flask app)
+memory = defaultdict(list)
+MAX_TURNS = 10
 
+app = Flask(__name__)
 # Allow all origins for a public demo. Restrict in production.
 CORS(
     app,
