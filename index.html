@@ -324,7 +324,6 @@
     }
 
     // ===== Send (testo + foto) =====
-    <script>
 async function send() {
   const text = inputEl.value.trim();
   const file = imgEl.files[0];
@@ -385,8 +384,6 @@ inputEl.addEventListener("keydown", (e) => {
     send();
   }
 });
-</script>
-
     // ===== New chat =====
     newChatBtn.addEventListener("click", async () => {
       const oldSid = getSessionId();
