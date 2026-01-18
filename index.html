@@ -324,44 +324,68 @@
     }
 
     // ===== Send (testo + foto) =====
-    async function send(){
-      const text = inputEl.value.trim();
-      const file = imgEl.files && imgEl.files[0] ? imgEl.files[0] : null;
-      if (!text && !file) return;
+    <script>
+async function send() {
+  const text = inputEl.value.trim();
+  const file = imgEl.files[0];
+  if (!text && !file) return;
 
-      const sessionId = getSessionId();
+  const sessionId = getSessionId();
 
-      if (text) addMessage(text, "user");
-      if (file) addMessage("📷 Foto inviata", "user");
+  if (text) addMessage(text, "user");
+  if (file) addMessage("📷 Foto inviata", "user");
 
-      inputEl.value = "";
-      const botBubble = addMessage("⏳ Attendo risposta...", "bot");
+  inputEl.value = "";
+  const botBubble = addMessage("⏳ Attendo risposta...", "bot");
 
-      try {
-        if (file) {
-          const data = await imageChat(sessionId, text, file);
-          botBubble.innerHTML = marked.parse(data.reply);
-          imgEl.value = "";
-          return;
-        }
+  try {
+    // ===== FOTO (Vision) =====
+    if (file) {
+      const form = new FormData();
+      form.append("session_id", sessionId);
+      form.append("message", text || "");
+      form.append("image", file);
 
-        const data = await httpChat(sessionId, text);
-        botBubble.innerHTML = marked.parse(data.reply);
+      const res = await fetch(IMAGE_API, {
+        method: "POST",
+        body: form
+      });
 
-      } catch (err) {
-        botBubble.textContent = "❌ Server non raggiungibile. Riprova tra poco.";
-        botBubble.parentElement.classList.add("error");
-      }
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.reply || "Errore Vision");
+
+      botBubble.innerHTML = marked.parse(data.reply);
+      imgEl.value = "";
+      return;
     }
 
-    sendBtn.addEventListener("click", send);
-
-    inputEl.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" && !e.shiftKey){
-        e.preventDefault();
-        send();
-      }
+    // ===== SOLO TESTO =====
+    const res = await fetch(HTTP_API, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ session_id: sessionId, message: text })
     });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.reply || "Errore server");
+
+    botBubble.innerHTML = marked.parse(data.reply);
+
+  } catch (err) {
+    botBubble.textContent = err.message || "❌ Errore imprevisto";
+    botBubble.parentElement.classList.add("error");
+  }
+}
+
+sendBtn.addEventListener("click", send);
+
+inputEl.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.shiftKey){
+    e.preventDefault();
+    send();
+  }
+});
+</script>
 
     // ===== New chat =====
     newChatBtn.addEventListener("click", async () => {
