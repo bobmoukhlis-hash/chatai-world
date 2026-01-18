@@ -12,36 +12,24 @@
       --bg:#f4f4f4;
       --card:#ffffff;
       --text:#111;
-      --muted:#666;
       --border:#ddd;
       --userbg:#e9eefc;
-      --userbd:#d6defa;
       --botbg:#eefaf4;
-      --botbd:#d3f3e2;
       --bottext:#0a7;
       --errbg:#ffecec;
-      --errbd:#ffcccc;
       --errtext:#b00020;
-      --prebg:#111;
-      --pretext:#0f0;
     }
 
     body.dark{
       --bg:#0f1115;
       --card:#171a21;
       --text:#e8e8e8;
-      --muted:#aaa;
       --border:#2a2f3a;
       --userbg:#232a44;
-      --userbd:#2d3760;
       --botbg:#1e3a2b;
-      --botbd:#2b5a3f;
       --bottext:#7dffb5;
       --errbg:#3a1f24;
-      --errbd:#5a2a31;
       --errtext:#ffb4c0;
-      --prebg:#0b0d12;
-      --pretext:#8cffc6;
     }
 
     body{
@@ -49,56 +37,14 @@
       background: var(--bg);
       color: var(--text);
       max-width: 900px;
-      margin: 0 auto;
+      margin: auto;
       padding: 16px;
     }
 
     header{
       display:flex;
-      align-items:center;
       justify-content:space-between;
-      gap:12px;
       margin-bottom:12px;
-    }
-
-    .title{
-      display:flex;
-      align-items:center;
-      gap:10px;
-    }
-
-    .title h1{
-      margin:0;
-      font-size:28px;
-    }
-
-    .actions{
-      display:flex;
-      align-items:center;
-      gap:10px;
-    }
-
-    .pill{
-      display:flex;
-      align-items:center;
-      gap:8px;
-      padding:8px 10px;
-      border:1px solid var(--border);
-      border-radius:999px;
-      background:var(--card);
-      color:var(--text);
-      font-size:14px;
-      user-select:none;
-    }
-
-    .btn{
-      padding:10px 14px;
-      border:1px solid var(--border);
-      border-radius:10px;
-      background:var(--card);
-      color:var(--text);
-      cursor:pointer;
-      font-size:14px;
     }
 
     #chat{
@@ -106,7 +52,7 @@
       border:1px solid var(--border);
       border-radius:12px;
       padding:14px;
-      height: 62vh;
+      height:60vh;
       overflow-y:auto;
     }
 
@@ -114,308 +60,181 @@
     .bubble{
       padding:10px 12px;
       border-radius:12px;
-      max-width:85%;
-      word-wrap:break-word;
-      border:1px solid var(--border);
+      max-width:80%;
     }
 
     .user{ justify-content:flex-end; }
-    .user .bubble{
-      background:var(--userbg);
-      border-color:var(--userbd);
-      color:var(--text);
-    }
+    .user .bubble{ background:var(--userbg); }
 
     .bot{ justify-content:flex-start; }
-    .bot .bubble{
-      background:var(--botbg);
-      border-color:var(--botbd);
-      color:var(--bottext);
-    }
+    .bot .bubble{ background:var(--botbg); color:var(--bottext); }
 
     .error .bubble{
       background:var(--errbg);
-      border-color:var(--errbd);
       color:var(--errtext);
     }
 
     #inputRow{
       display:flex;
       gap:10px;
-      margin-top:12px;
+      margin-top:10px;
     }
 
     textarea{
       flex:1;
-      resize:none;
       padding:12px;
-      font-size:16px;
       border-radius:10px;
       border:1px solid var(--border);
-      background:var(--card);
-      color:var(--text);
-      height:56px;
+      resize:none;
     }
 
-    button#sendBtn{
-      width:120px;
-      border:1px solid var(--border);
+    button{
+      padding:12px;
       border-radius:10px;
+      border:1px solid var(--border);
       background:var(--card);
-      color:var(--text);
       cursor:pointer;
-      font-size:16px;
-    }
-
-    #toolsRow{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-      margin-top:10px;
-    }
-
-    input[type="file"]{
-      flex:1;
-      padding:10px;
-      border:1px dashed var(--border);
-      border-radius:10px;
-      background:var(--card);
-      color:var(--text);
-    }
-
-    .hint{
-      margin-top:8px;
-      color:var(--muted);
-      font-size:12px;
-    }
-
-    pre{
-      background:var(--prebg);
-      color:var(--pretext);
-      padding:10px;
-      border-radius:8px;
-      overflow-x:auto;
-    }
-
-    code{
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
     }
   </style>
 </head>
 
 <body>
-  <header>
-    <div class="title">
-      <h1>🤖 ChatAI World</h1>
-    </div>
 
-    <div class="actions">
-      <label class="pill">
-        <input id="darkToggle" type="checkbox" />
-        Dark
-      </label>
-      <button class="btn" id="newChatBtn">🆕 Nuova chat</button>
-    </div>
-  </header>
-
-  <div id="chat"></div>
-
-  <div id="inputRow">
-    <textarea id="t" placeholder="Scrivi un messaggio..."></textarea>
-    <button id="sendBtn">Invia</button>
+<header>
+  <h2>🤖 ChatAI World</h2>
+  <div>
+    <label>
+      <input type="checkbox" id="darkToggle"> Dark
+    </label>
+    <button id="newChatBtn">🆕 Nuova chat</button>
   </div>
+</header>
 
-  <div id="toolsRow">
-    <input type="file" id="img" accept="image/*" />
-  </div>
+<div id="chat"></div>
 
-  <div class="hint">
-    Enter = invia • Shift+Enter = a capo • Testo e foto vengono inviati al server
-  </div>
+<div id="inputRow">
+  <textarea id="t" placeholder="Scrivi un messaggio..."></textarea>
+  <button id="sendBtn">Invia</button>
+</div>
 
-  <script>
-    const HTTP_API = "https://chatai-world.onrender.com/chat";
-    const IMAGE_API = "https://chatai-world.onrender.com/chat-image";
-    const RESET_API = "https://chatai-world.onrender.com/reset";
+<input type="file" id="img" accept="image/*">
 
-    const chatEl = document.getElementById("chat");
-    const inputEl = document.getElementById("t");
-    const sendBtn = document.getElementById("sendBtn");
-    const newChatBtn = document.getElementById("newChatBtn");
-    const darkToggle = document.getElementById("darkToggle");
-    const imgEl = document.getElementById("img");
+<script>
+const HTTP_API  = "https://chatai-world.onrender.com/chat";
+const IMAGE_API = "https://chatai-world.onrender.com/chat-image";
+const RESET_API = "https://chatai-world.onrender.com/reset";
 
-    // ===== Theme =====
-    const savedTheme = localStorage.getItem("theme") || "light";
-    if (savedTheme === "dark") document.body.classList.add("dark");
-    darkToggle.checked = document.body.classList.contains("dark");
+const chatEl = document.getElementById("chat");
+const inputEl = document.getElementById("t");
+const imgEl   = document.getElementById("img");
 
-    darkToggle.addEventListener("change", () => {
-      document.body.classList.toggle("dark", darkToggle.checked);
-      localStorage.setItem("theme", darkToggle.checked ? "dark" : "light");
-    });
+/* ===== Session ===== */
+function getSessionId(){
+  let sid = localStorage.getItem("session_id");
+  if (!sid){
+    sid = crypto.randomUUID();
+    localStorage.setItem("session_id", sid);
+  }
+  return sid;
+}
+function newSession(){
+  localStorage.setItem("session_id", crypto.randomUUID());
+}
 
-    // ===== Session =====
-    function getSessionId(){
-      let sid = localStorage.getItem("session_id");
-      if (!sid) {
-        sid = crypto.randomUUID();
-        localStorage.setItem("session_id", sid);
-      }
-      return sid;
-    }
+/* ===== UI ===== */
+function addMessage(text, who, html=false){
+  const row = document.createElement("div");
+  row.className = "msg " + who;
+  const bubble = document.createElement("div");
+  bubble.className = "bubble";
+  html ? bubble.innerHTML = text : bubble.textContent = text;
+  row.appendChild(bubble);
+  chatEl.appendChild(row);
+  chatEl.scrollTop = chatEl.scrollHeight;
+  return bubble;
+}
+function clearChat(){ chatEl.innerHTML = ""; }
 
-    function setNewSessionId(){
-      const sid = crypto.randomUUID();
-      localStorage.setItem("session_id", sid);
-      return sid;
-    }
-
-    // ===== UI helpers =====
-    function addMessage(content, who, isHtml=false){
-      const row = document.createElement("div");
-      row.className = "msg " + who;
-
-      const bubble = document.createElement("div");
-      bubble.className = "bubble";
-
-      if (isHtml) bubble.innerHTML = content;
-      else bubble.textContent = content;
-
-      row.appendChild(bubble);
-      chatEl.appendChild(row);
-      row.scrollIntoView({behavior:"smooth"});
-      return bubble;
-    }
-
-    function clearChat(){
-      chatEl.innerHTML = "";
-    }
-
-    // ===== HTTP chat (testo) =====
-    async function httpChat(sessionId, message){
-      const res = await fetch(HTTP_API, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ session_id: sessionId, message })
-      });
-
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error((data.reply || `HTTP ${res.status}`).trim());
-      return data;
-    }
-
-    // ===== HTTP vision (foto) =====
-    async function imageChat(sessionId, message, file){
-      const form = new FormData();
-      form.append("session_id", sessionId);
-      form.append("message", message || "");
-      form.append("image", file);
-
-      const res = await fetch(IMAGE_API, {
-        method: "POST",
-        body: form
-      });
-
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error((data.reply || `HTTP ${res.status}`).trim());
-      return data;
-    }
-
-    // ===== Send (testo + foto) =====
-async function send() {
+/* ===== SEND ===== */
+async function send(){
   const text = inputEl.value.trim();
   const file = imgEl.files[0];
   if (!text && !file) return;
 
   const sessionId = getSessionId();
 
-  if (text) addMessage(text, "user");
-  if (file) addMessage("📷 Foto inviata", "user");
+  if (text) addMessage(text,"user");
+  if (file) addMessage("📷 Foto inviata","user");
 
   inputEl.value = "";
-  const botBubble = addMessage("⏳ Attendo risposta...", "bot");
+  const bot = addMessage("⏳ Attendo risposta...","bot");
 
-  try {
-    // ===== FOTO (Vision) =====
-    if (file) {
+  try{
+    let res;
+
+    if (file){
       const form = new FormData();
       form.append("session_id", sessionId);
       form.append("message", text || "");
       form.append("image", file);
-
-      const res = await fetch(IMAGE_API, {
-        method: "POST",
-        body: form
+      res = await fetch(IMAGE_API,{ method:"POST", body:form });
+    } else {
+      res = await fetch(HTTP_API,{
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body:JSON.stringify({ session_id:sessionId, message:text })
       });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.reply || "Errore Vision");
-
-      botBubble.innerHTML = marked.parse(data.reply);
-      imgEl.value = "";
-      return;
     }
 
-    // ===== SOLO TESTO =====
-    const res = await fetch(HTTP_API, {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ session_id: sessionId, message: text })
-});
+    const raw = await res.text();
+    let data;
+    try{
+      data = JSON.parse(raw);
+    }catch{
+      throw new Error("Risposta non JSON dal server");
+    }
 
-const raw = await res.text();   // 👈 QUI
-let data;
+    if (!res.ok){
+      throw new Error(data.reply || "Errore server");
+    }
 
-try {
-  data = JSON.parse(raw);
-} catch {
-  throw new Error("Risposta non JSON dal server");
-}
+    bot.innerHTML = marked.parse(data.reply);
+    imgEl.value = "";
 
-if (!res.ok) {
-  throw new Error(data.reply || "Errore server");
-}
-
-botBubble.innerHTML = marked.parse(data.reply);
-
-  } catch (err) {
-    botBubble.textContent = err.message || "❌ Errore imprevisto";
-    botBubble.parentElement.classList.add("error");
+  }catch(err){
+    bot.textContent = "❌ " + err.message;
+    bot.parentElement.classList.add("error");
   }
 }
 
-sendBtn.addEventListener("click", send);
-
-inputEl.addEventListener("keydown", (e) => {
-  if (e.key === "Enter" && !e.shiftKey){
-    e.preventDefault();
-    send();
+/* ===== Events ===== */
+document.getElementById("sendBtn").onclick = send;
+inputEl.addEventListener("keydown",e=>{
+  if (e.key==="Enter" && !e.shiftKey){
+    e.preventDefault(); send();
   }
 });
-    // ===== New chat =====
-    newChatBtn.addEventListener("click", async () => {
-      const oldSid = getSessionId();
 
-      try {
-        await fetch(RESET_API, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ session_id: oldSid })
-        });
-      } catch (e) {}
-
-      setNewSessionId();
-      clearChat();
-      addMessage(marked.parse("Nuova chat avviata ✅\n\nCarica una foto o scrivi un messaggio."), "bot", true);
-
-      imgEl.value = "";
-      inputEl.value = "";
+document.getElementById("newChatBtn").onclick = async ()=>{
+  try{
+    await fetch(RESET_API,{
+      method:"POST",
+      headers:{ "Content-Type":"application/json" },
+      body:JSON.stringify({ session_id:getSessionId() })
     });
+  }catch{}
+  newSession();
+  clearChat();
+  addMessage("Nuova chat avviata ✅","bot");
+};
 
-    // Welcome
-    addMessage(marked.parse("Ciao! Come posso aiutarti oggi?"), "bot", true);
-  </script>
+document.getElementById("darkToggle").onchange = e=>{
+  document.body.classList.toggle("dark",e.target.checked);
+};
+
+/* ===== Welcome ===== */
+addMessage("Ciao! Come posso aiutarti oggi?","bot");
+</script>
+
 </body>
 </html>
