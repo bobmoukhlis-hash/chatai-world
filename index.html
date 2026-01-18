@@ -5,118 +5,185 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>ChatAI World</title>
 
-  <!-- Markdown renderer -->
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
   <style>
-    body {
+    :root{
+      --bg:#f4f4f4;
+      --card:#ffffff;
+      --text:#111;
+      --muted:#666;
+      --border:#ddd;
+      --userbg:#e9eefc;
+      --userbd:#d6defa;
+      --botbg:#eefaf4;
+      --botbd:#d3f3e2;
+      --bottext:#0a7;
+      --errbg:#ffecec;
+      --errbd:#ffcccc;
+      --errtext:#b00020;
+      --prebg:#111;
+      --pretext:#0f0;
+    }
+
+    body.dark{
+      --bg:#0f1115;
+      --card:#171a21;
+      --text:#e8e8e8;
+      --muted:#aaa;
+      --border:#2a2f3a;
+      --userbg:#232a44;
+      --userbd:#2d3760;
+      --botbg:#1e3a2b;
+      --botbd:#2b5a3f;
+      --bottext:#7dffb5;
+      --errbg:#3a1f24;
+      --errbd:#5a2a31;
+      --errtext:#ffb4c0;
+      --prebg:#0b0d12;
+      --pretext:#8cffc6;
+    }
+
+    body{
       font-family: system-ui, sans-serif;
-      background: #f4f4f4;
-      max-width: 800px;
+      background: var(--bg);
+      color: var(--text);
+      max-width: 900px;
       margin: 0 auto;
-      padding: 18px;
+      padding: 16px;
     }
 
-    header {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 10px;
-      margin-bottom: 12px;
+    header{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      margin-bottom:12px;
     }
 
-    header h1 {
-      font-size: 28px;
-      margin: 0;
+    .title{
+      display:flex;
+      align-items:center;
+      gap:10px;
     }
 
-    #chat {
-      background: #fff;
-      border-radius: 12px;
-      border: 1px solid #ddd;
-      padding: 14px;
+    .title h1{
+      margin:0;
+      font-size:28px;
+    }
+
+    .actions{
+      display:flex;
+      align-items:center;
+      gap:10px;
+    }
+
+    .pill{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 10px;
+      border:1px solid var(--border);
+      border-radius:999px;
+      background:var(--card);
+      color:var(--text);
+      font-size:14px;
+      user-select:none;
+    }
+
+    .btn{
+      padding:10px 14px;
+      border:1px solid var(--border);
+      border-radius:10px;
+      background:var(--card);
+      color:var(--text);
+      cursor:pointer;
+      font-size:14px;
+    }
+
+    #chat{
+      background:var(--card);
+      border:1px solid var(--border);
+      border-radius:12px;
+      padding:14px;
       height: 65vh;
-      overflow-y: auto;
+      overflow-y:auto;
     }
 
-    .msg {
-      margin: 10px 0;
-      line-height: 1.4;
-      display: flex;
+    .msg{ margin:10px 0; display:flex; }
+    .bubble{
+      padding:10px 12px;
+      border-radius:12px;
+      max-width:85%;
+      word-wrap:break-word;
+      border:1px solid var(--border);
+    }
+    .user{ justify-content:flex-end; }
+    .user .bubble{ background:var(--userbg); border-color:var(--userbd); color:var(--text); }
+    .bot{ justify-content:flex-start; }
+    .bot .bubble{ background:var(--botbg); border-color:var(--botbd); color:var(--bottext); }
+    .error .bubble{ background:var(--errbg); border-color:var(--errbd); color:var(--errtext); }
+
+    #inputRow{
+      display:flex;
+      gap:10px;
+      margin-top:12px;
     }
 
-    .bubble {
-      padding: 10px 12px;
-      border-radius: 12px;
-      max-width: 85%;
-      word-wrap: break-word;
+    textarea{
+      flex:1;
+      resize:none;
+      padding:12px;
+      font-size:16px;
+      border-radius:10px;
+      border:1px solid var(--border);
+      background:var(--card);
+      color:var(--text);
+      height:56px;
     }
 
-    .user {
-      justify-content: flex-end;
-    }
-    .user .bubble {
-      background: #e9eefc;
-      color: #111;
-      border: 1px solid #d6defa;
-    }
-
-    .bot {
-      justify-content: flex-start;
-    }
-    .bot .bubble {
-      background: #eefaf4;
-      color: #0a7;
-      border: 1px solid #d3f3e2;
+    button#sendBtn{
+      width:120px;
+      border:1px solid var(--border);
+      border-radius:10px;
+      background:var(--card);
+      color:var(--text);
+      cursor:pointer;
+      font-size:16px;
     }
 
-    .error .bubble {
-      background: #ffecec;
-      color: #b00020;
-      border: 1px solid #ffcccc;
+    pre{
+      background:var(--prebg);
+      color:var(--pretext);
+      padding:10px;
+      border-radius:8px;
+      overflow-x:auto;
     }
-
-    #inputRow {
-      display: flex;
-      gap: 10px;
-      margin-top: 12px;
-    }
-
-    textarea {
-      flex: 1;
-      resize: none;
-      padding: 12px;
-      font-size: 16px;
-      border-radius: 10px;
-      border: 1px solid #ccc;
-      height: 54px;
-    }
-
-    button {
-      width: 120px;
-      border: 1px solid #ccc;
-      border-radius: 10px;
-      font-size: 16px;
-      cursor: pointer;
-    }
-
-    pre {
-      background: #111;
-      color: #0f0;
-      padding: 10px;
-      border-radius: 8px;
-      overflow-x: auto;
-    }
-
-    code {
+    code{
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    .hint{
+      margin-top:8px;
+      color:var(--muted);
+      font-size:12px;
     }
   </style>
 </head>
 
 <body>
   <header>
-    <h1>🤖 ChatAI World</h1>
+    <div class="title">
+      <h1>🤖 ChatAI World</h1>
+    </div>
+
+    <div class="actions">
+      <label class="pill">
+        <input id="darkToggle" type="checkbox" />
+        Dark
+      </label>
+      <button class="btn" id="newChatBtn">🆕 Nuova chat</button>
+    </div>
   </header>
 
   <div id="chat"></div>
@@ -126,102 +193,173 @@
     <button id="sendBtn">Invia</button>
   </div>
 
+  <div class="hint">
+    Invio: Enter • A capo: Shift+Enter • Streaming: WebSocket
+  </div>
+
   <script>
-    const API = "https://chatai-world.onrender.com/chat";
+    const HTTP_API = "https://chatai-world.onrender.com/chat";
+    const RESET_API = "https://chatai-world.onrender.com/reset";
+    const WS_API = "wss://chatai-world.onrender.com/ws";
+
     const chatEl = document.getElementById("chat");
     const inputEl = document.getElementById("t");
     const sendBtn = document.getElementById("sendBtn");
+    const newChatBtn = document.getElementById("newChatBtn");
+    const darkToggle = document.getElementById("darkToggle");
 
-    // sessione stabile (salvata nel browser)
-    let sessionId = localStorage.getItem("session_id");
-    if (!sessionId) {
-      sessionId = crypto.randomUUID();
-      localStorage.setItem("session_id", sessionId);
+    // ===== Theme =====
+    const savedTheme = localStorage.getItem("theme") || "light";
+    if (savedTheme === "dark") document.body.classList.add("dark");
+    darkToggle.checked = document.body.classList.contains("dark");
+
+    darkToggle.addEventListener("change", () => {
+      document.body.classList.toggle("dark", darkToggle.checked);
+      localStorage.setItem("theme", darkToggle.checked ? "dark" : "light");
+    });
+
+    // ===== Session =====
+    function getSessionId(){
+      let sid = localStorage.getItem("session_id");
+      if (!sid) {
+        sid = crypto.randomUUID();
+        localStorage.setItem("session_id", sid);
+      }
+      return sid;
+    }
+    function setNewSessionId(){
+      const sid = crypto.randomUUID();
+      localStorage.setItem("session_id", sid);
+      return sid;
     }
 
-    function addMessage(htmlOrText, who, isHtml = false) {
+    // ===== UI helpers =====
+    function addMessage(content, who, isHtml=false){
       const row = document.createElement("div");
       row.className = "msg " + who;
-
       const bubble = document.createElement("div");
       bubble.className = "bubble";
-
-      if (isHtml) bubble.innerHTML = htmlOrText;
-      else bubble.textContent = htmlOrText;
-
+      if (isHtml) bubble.innerHTML = content;
+      else bubble.textContent = content;
       row.appendChild(bubble);
       chatEl.appendChild(row);
-      row.scrollIntoView({ behavior: "smooth" });
-
+      row.scrollIntoView({behavior:"smooth"});
       return bubble;
     }
 
-    function typingEffect(targetBubble, fullText, speedMs = 12) {
-      targetBubble.innerHTML = ""; // svuota
-      let i = 0;
-      const timer = setInterval(() => {
-        targetBubble.textContent += fullText[i] || "";
-        i++;
-        if (i >= fullText.length) clearInterval(timer);
-      }, speedMs);
+    function clearChat(){
+      chatEl.innerHTML = "";
     }
 
-    async function send() {
+    // ===== WebSocket Streaming =====
+    function wsStream(sessionId, message, botBubble){
+      return new Promise((resolve, reject) => {
+        const ws = new WebSocket(WS_API);
+        let full = "";
+
+        ws.onopen = () => {
+          ws.send(JSON.stringify({ session_id: sessionId, message }));
+        };
+
+        ws.onmessage = (ev) => {
+          try {
+            const msg = JSON.parse(ev.data);
+
+            if (msg.type === "token") {
+              full += msg.token;
+              botBubble.textContent = full;
+            } else if (msg.type === "done") {
+              ws.close();
+              resolve(full);
+            } else if (msg.type === "error") {
+              ws.close();
+              reject(new Error(msg.message || "Errore WS"));
+            }
+          } catch (e) {
+            // ignora
+          }
+        };
+
+        ws.onerror = () => {
+          reject(new Error("WebSocket error"));
+        };
+      });
+    }
+
+    // ===== Fallback HTTP =====
+    async function httpChat(sessionId, message){
+      const res = await fetch(HTTP_API, {
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({ session_id: sessionId, message })
+      });
+      if (!res.ok){
+        let detail = "";
+        try { detail = (await res.json()).reply || ""; } catch(e){}
+        throw new Error(`HTTP ${res.status} ${detail}`.trim());
+      }
+      return await res.json();
+    }
+
+    // ===== Send =====
+    async function send(){
       const text = inputEl.value.trim();
       if (!text) return;
+
+      const sessionId = getSessionId();
 
       addMessage(text, "user", false);
       inputEl.value = "";
 
-      // placeholder bot
       const botBubble = addMessage("⏳ Sto pensando...", "bot", false);
 
+      // preferisci WS streaming, fallback HTTP se fallisce
       try {
-        const res = await fetch(API, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ session_id: sessionId, message: text })
-        });
-
-        // errore HTTP
-        if (!res.ok) {
-          let detail = "";
-          try {
-            const j = await res.json();
-            detail = j.reply || "";
-          } catch (e) {}
-          botBubble.textContent = `❌ Errore server (${res.status}) ${detail}`.trim();
-          botBubble.parentElement.classList.add("error");
-          return;
-        }
-
-        const data = await res.json();
-
-        // Markdown render + typing effect su testo plain (migliore compatibilità)
-        // 1) typing effect su testo
-        typingEffect(botBubble, data.reply, 10);
-
-        // 2) dopo typing, se vuoi Markdown "puro" al posto del typing:
-        // botBubble.innerHTML = marked.parse(data.reply);
-
+        const full = await wsStream(sessionId, text, botBubble);
+        // se vuoi markdown al termine:
+        botBubble.innerHTML = marked.parse(full);
       } catch (e) {
-        botBubble.textContent = "❌ Errore di rete. Controlla connessione o backend.";
-        botBubble.parentElement.classList.add("error");
+        try {
+          const data = await httpChat(sessionId, text);
+          botBubble.innerHTML = marked.parse(data.reply);
+        } catch (err) {
+          botBubble.textContent = "❌ Errore: " + err.message;
+          botBubble.parentElement.classList.add("error");
+        }
       }
     }
 
-    // click button
     sendBtn.addEventListener("click", send);
 
-    // invio con Enter (Shift+Enter va a capo)
     inputEl.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" && !e.shiftKey) {
+      if (e.key === "Enter" && !e.shiftKey){
         e.preventDefault();
         send();
       }
     });
 
-    // messaggio iniziale
+    // ===== New chat (reset client + reset backend memory) =====
+    newChatBtn.addEventListener("click", async () => {
+      const oldSid = getSessionId();
+
+      // reset backend memory best-effort
+      try {
+        await fetch(RESET_API, {
+          method:"POST",
+          headers:{ "Content-Type":"application/json" },
+          body: JSON.stringify({ session_id: oldSid })
+        });
+      } catch (e) {}
+
+      // new session id client
+      setNewSessionId();
+
+      // clear UI
+      clearChat();
+      addMessage(marked.parse("Nuova chat avviata ✅\n\nDimmi pure!"), "bot", true);
+    });
+
+    // welcome
     addMessage(marked.parse("Ciao! Come posso aiutarti oggi?"), "bot", true);
   </script>
 </body>
