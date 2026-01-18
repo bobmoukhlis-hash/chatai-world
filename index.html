@@ -1,128 +1,228 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>ChatAI World</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ChatAI World</title>
 
-<style>
-body {
-  font-family: system-ui, sans-serif;
-  background: #f4f4f4;
-  max-width: 700px;
-  margin: auto;
-  padding: 20px;
-}
+  <!-- Markdown renderer -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
-h2 {
-  text-align: center;
-}
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      background: #f4f4f4;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 18px;
+    }
 
-#chat {
-  background: white;
-  border-radius: 8px;
-  padding: 15px;
-  height: 60vh;
-  overflow-y: auto;
-  border: 1px solid #ddd;
-}
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
 
-.msg {
-  margin-bottom: 12px;
-  line-height: 1.4;
-}
+    header h1 {
+      font-size: 28px;
+      margin: 0;
+    }
 
-.user {
-  text-align: right;
-  color: #333;
-}
+    #chat {
+      background: #fff;
+      border-radius: 12px;
+      border: 1px solid #ddd;
+      padding: 14px;
+      height: 65vh;
+      overflow-y: auto;
+    }
 
-.bot {
-  text-align: left;
-  color: #0a7;
-}
+    .msg {
+      margin: 10px 0;
+      line-height: 1.4;
+      display: flex;
+    }
 
-.error {
-  color: red;
-  font-weight: bold;
-}
+    .bubble {
+      padding: 10px 12px;
+      border-radius: 12px;
+      max-width: 85%;
+      word-wrap: break-word;
+    }
 
-#input {
-  display: flex;
-  gap: 10px;
-  margin-top: 10px;
-}
+    .user {
+      justify-content: flex-end;
+    }
+    .user .bubble {
+      background: #e9eefc;
+      color: #111;
+      border: 1px solid #d6defa;
+    }
 
-textarea {
-  flex: 1;
-  resize: none;
-  padding: 10px;
-  font-size: 16px;
-}
+    .bot {
+      justify-content: flex-start;
+    }
+    .bot .bubble {
+      background: #eefaf4;
+      color: #0a7;
+      border: 1px solid #d3f3e2;
+    }
 
-button {
-  padding: 10px 16px;
-  font-size: 16px;
-  cursor: pointer;
-}
-</style>
+    .error .bubble {
+      background: #ffecec;
+      color: #b00020;
+      border: 1px solid #ffcccc;
+    }
+
+    #inputRow {
+      display: flex;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    textarea {
+      flex: 1;
+      resize: none;
+      padding: 12px;
+      font-size: 16px;
+      border-radius: 10px;
+      border: 1px solid #ccc;
+      height: 54px;
+    }
+
+    button {
+      width: 120px;
+      border: 1px solid #ccc;
+      border-radius: 10px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+
+    pre {
+      background: #111;
+      color: #0f0;
+      padding: 10px;
+      border-radius: 8px;
+      overflow-x: auto;
+    }
+
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+  </style>
 </head>
 
 <body>
+  <header>
+    <h1>🤖 ChatAI World</h1>
+  </header>
 
-<h2>🤖 ChatAI World</h2>
+  <div id="chat"></div>
 
-<div id="chat"></div>
+  <div id="inputRow">
+    <textarea id="t" placeholder="Scrivi un messaggio..."></textarea>
+    <button id="sendBtn">Invia</button>
+  </div>
 
-<div id="input">
-  <textarea id="t" placeholder="Scrivi un messaggio..."></textarea>
-  <button onclick="send()">Invia</button>
-</div>
+  <script>
+    const API = "https://chatai-world.onrender.com/chat";
+    const chatEl = document.getElementById("chat");
+    const inputEl = document.getElementById("t");
+    const sendBtn = document.getElementById("sendBtn");
 
-<script>
-const API = "https://chatai-world.onrender.com/chat";
-let sessionId = crypto.randomUUID();
-
-function addMsg(text, cls) {
-  const div = document.createElement("div");
-  div.className = "msg " + cls;
-  div.textContent = text;
-  document.getElementById("chat").appendChild(div);
-  div.scrollIntoView({ behavior: "smooth" });
-}
-
-async function send() {
-  const input = document.getElementById("t");
-  const text = input.value.trim();
-  if (!text) return;
-
-  addMsg(text, "user");
-  input.value = "";
-  addMsg("⏳ Sto pensando...", "bot");
-
-  try {
-    const res = await fetch(API, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        session_id: sessionId,
-        message: text
-      })
-    });
-
-    if (!res.ok) {
-      throw new Error("HTTP " + res.status);
+    // sessione stabile (salvata nel browser)
+    let sessionId = localStorage.getItem("session_id");
+    if (!sessionId) {
+      sessionId = crypto.randomUUID();
+      localStorage.setItem("session_id", sessionId);
     }
 
-    const data = await res.json();
-    document.querySelector(".bot:last-child").textContent = data.reply;
+    function addMessage(htmlOrText, who, isHtml = false) {
+      const row = document.createElement("div");
+      row.className = "msg " + who;
 
-  } catch (e) {
-    document.querySelector(".bot:last-child").textContent =
-      "❌ Errore di rete o server.";
-  }
-}
-</script>
+      const bubble = document.createElement("div");
+      bubble.className = "bubble";
 
+      if (isHtml) bubble.innerHTML = htmlOrText;
+      else bubble.textContent = htmlOrText;
+
+      row.appendChild(bubble);
+      chatEl.appendChild(row);
+      row.scrollIntoView({ behavior: "smooth" });
+
+      return bubble;
+    }
+
+    function typingEffect(targetBubble, fullText, speedMs = 12) {
+      targetBubble.innerHTML = ""; // svuota
+      let i = 0;
+      const timer = setInterval(() => {
+        targetBubble.textContent += fullText[i] || "";
+        i++;
+        if (i >= fullText.length) clearInterval(timer);
+      }, speedMs);
+    }
+
+    async function send() {
+      const text = inputEl.value.trim();
+      if (!text) return;
+
+      addMessage(text, "user", false);
+      inputEl.value = "";
+
+      // placeholder bot
+      const botBubble = addMessage("⏳ Sto pensando...", "bot", false);
+
+      try {
+        const res = await fetch(API, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ session_id: sessionId, message: text })
+        });
+
+        // errore HTTP
+        if (!res.ok) {
+          let detail = "";
+          try {
+            const j = await res.json();
+            detail = j.reply || "";
+          } catch (e) {}
+          botBubble.textContent = `❌ Errore server (${res.status}) ${detail}`.trim();
+          botBubble.parentElement.classList.add("error");
+          return;
+        }
+
+        const data = await res.json();
+
+        // Markdown render + typing effect su testo plain (migliore compatibilità)
+        // 1) typing effect su testo
+        typingEffect(botBubble, data.reply, 10);
+
+        // 2) dopo typing, se vuoi Markdown "puro" al posto del typing:
+        // botBubble.innerHTML = marked.parse(data.reply);
+
+      } catch (e) {
+        botBubble.textContent = "❌ Errore di rete. Controlla connessione o backend.";
+        botBubble.parentElement.classList.add("error");
+      }
+    }
+
+    // click button
+    sendBtn.addEventListener("click", send);
+
+    // invio con Enter (Shift+Enter va a capo)
+    inputEl.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        send();
+      }
+    });
+
+    // messaggio iniziale
+    addMessage(marked.parse("Ciao! Come posso aiutarti oggi?"), "bot", true);
+  </script>
 </body>
 </html>
