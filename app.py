@@ -10,7 +10,6 @@ from typing import Any, Dict, List
 import requests
 from flask import Flask, jsonify, request
 from flask_cors import CORS
-from flask_sock import Sock
 
 # =========================
 # Config
@@ -22,7 +21,7 @@ GROQ_API_KEY = os.getenv("GROQ_API_KEY", "").strip()
 MODEL_TEXT = os.getenv("MODEL_TEXT", "llama-3.3-70b-versatile").strip()
 
 # Modello per immagini (Vision)
-MODEL_VISION = os.getenv("MODEL_VISION", "llama-3.2-vision-preview").strip()
+MODEL_VISION = "llama-3.2-vision-preview"
 
 GROQ_URL = os.getenv("GROQ_URL", "https://api.groq.com/openai/v1/chat/completions").strip()
 DEFAULT_TIMEOUT_SECONDS = 30
@@ -51,8 +50,6 @@ MAX_IMAGE_BYTES = 5 * 1024 * 1024  # 5MB
 # =========================
 
 app = Flask(__name__)
-sock = Sock(app)
-
 CORS(
     app,
     resources={r"/*": {"origins": "*"}},
@@ -274,8 +271,6 @@ def chat_image():
     _append_assistant(session_id, reply)
     return jsonify({"reply": reply, "session_id": session_id}), 200
 
-
-@sock.route("/ws")
 def ws_chat(ws):
     # Riceve JSON: {"session_id":"...", "message":"..."}
     if not GROQ_API_KEY:
