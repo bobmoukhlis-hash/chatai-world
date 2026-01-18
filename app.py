@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import base64
 import os
 import time
 from collections import defaultdict
@@ -18,7 +17,6 @@ GROQ_API_KEY = os.getenv("GROQ_API_KEY", "").strip()
 GROQ_URL = os.getenv("GROQ_URL", "https://api.groq.com/openai/v1/chat/completions").strip()
 
 MODEL_TEXT = os.getenv("MODEL_TEXT", "llama-3.3-70b-versatile").strip()
-
 DEFAULT_TIMEOUT_SECONDS = 30
 
 SYSTEM_PROMPT = (
@@ -37,8 +35,6 @@ MAX_TURNS = 12
 rate_limit: Dict[str, List[float]] = {}
 MAX_REQ = 30
 WINDOW = 60
-
-MAX_IMAGE_BYTES = 5 * 1024 * 1024  # 5MB
 
 # =========================
 # App
@@ -170,80 +166,17 @@ def chat():
     return jsonify({"reply": reply, "session_id": session_id}), 200
 
 
-    if not GROQ_API_KEY:
-        return jsonify({"reply": "❌ GROQ_API_KEY mancante su Render"}), 500
-
-    if "image" not in request.files:
-        return jsonify({"reply": "❌ Nessuna immagine caricata"}), 400
-
-    image = request.files["image"]
-    user_text = str(request.form.get("message", "")).strip()
+@app.post("/chat-image")
+def chat_image():
+    # Vision su Groq: NON disponibile nel tuo caso (modello 404).
+    # Rispondiamo sempre JSON per evitare "Unexpected token '<'".
     session_id = str(request.form.get("session_id", "")).strip() or "default"
-
-    if not _apply_rate_limit(session_id):
-        return jsonify({"reply": "⛔ Troppi messaggi, rallenta un attimo.", "session_id": session_id}), 429
-
-    img_bytes = image.read()
-    if len(img_bytes) > MAX_IMAGE_BYTES:
-        return jsonify({"reply": "❌ Immagine troppo grande (max 5MB).", "session_id": session_id}), 413
-
-    mime = (image.mimetype or "").lower()
-    if mime not in ("image/jpeg", "image/png", "image/webp"):
-        return jsonify({"reply": "❌ Formato non supportato. Usa JPG/PNG/WebP.", "session_id": session_id}), 400
-
-    # Memoria: testo dell'utente (o prompt di default)
-    _append_user(session_id, user_text or "Descrivi questa immagine.")
-
-    img_b64 = base64.b64encode(img_bytes).decode("utf-8")
-
-    # Importante: qui NON riusiamo memory[-1] come contenuto testuale,
-    # ricostruiamo il messaggio con immagine per la chiamata Vision.
-    messages: List[Dict[str, Any]] = [
-        {"role": "system", "content": SYSTEM_PROMPT},
-        *memory[session_id][:-1],
+    return jsonify(
         {
-            "role": "user",
-            "content": [
-                {"type": "text", "text": user_text or "Descrivi questa immagine."},
-                {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{img_b64}"}},
-            ],
-        },
-    ]
-
-    payload = {
-        "model": MODEL_VISION,
-        "messages": messages,
-        "temperature": 0.6,
-    }
-
-    try:
-        resp = requests.post(
-            GROQ_URL,
-            headers=_headers(),
-            json=payload,
-            timeout=DEFAULT_TIMEOUT_SECONDS,
-        )
-    except requests.Timeout:
-        return jsonify({"reply": "⏳ Timeout chiamando Vision. Riprova.", "session_id": session_id}), 504
-    except requests.RequestException as e:
-        return jsonify({"reply": f"❌ Errore rete Vision: {e}", "session_id": session_id}), 502
-
-    if not resp.ok:
-        detail = ""
-        try:
-            detail = resp.json().get("error", {}).get("message", "")
-        except Exception:
-            detail = resp.text[:300]
-        return jsonify({"reply": f"❌ Vision HTTP {resp.status_code}: {detail}".strip(), "session_id": session_id}), 502
-
-    try:
-        data_out = resp.json()
-        reply = data_out["choices"][0]["message"]["content"]
-    except Exception as e:
-        return jsonify({"reply": f"❌ Risposta Vision non valida: {e}", "session_id": session_id}), 502
-
-    _append_assistant(session_id, reply)
-    return jsonify({"reply": reply, "session_id": session_id}), 200
+            "reply": "⚠️ Vision (foto) non disponibile su questo server. Invia solo testo.",
+            "session_id": session_id,
+        }
+    ), 503
 
 
 if __name__ == "__main__":
