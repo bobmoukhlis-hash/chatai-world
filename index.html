@@ -380,7 +380,7 @@
             throw e;
           }
         } catch (err) {
-          botBubble.textContent = "❌ Errore: " + err.message;
+          botBubble.textContent = "❌ Server non raggiungibile. Riprova tra poco.";
           botBubble.parentElement.classList.add("error");
         }
       }
