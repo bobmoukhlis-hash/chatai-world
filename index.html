@@ -118,11 +118,26 @@
       word-wrap:break-word;
       border:1px solid var(--border);
     }
+
     .user{ justify-content:flex-end; }
-    .user .bubble{ background:var(--userbg); border-color:var(--userbd); color:var(--text); }
+    .user .bubble{
+      background:var(--userbg);
+      border-color:var(--userbd);
+      color:var(--text);
+    }
+
     .bot{ justify-content:flex-start; }
-    .bot .bubble{ background:var(--botbg); border-color:var(--botbd); color:var(--bottext); }
-    .error .bubble{ background:var(--errbg); border-color:var(--errbd); color:var(--errtext); }
+    .bot .bubble{
+      background:var(--botbg);
+      border-color:var(--botbd);
+      color:var(--bottext);
+    }
+
+    .error .bubble{
+      background:var(--errbg);
+      border-color:var(--errbd);
+      color:var(--errtext);
+    }
 
     #inputRow{
       display:flex;
@@ -182,6 +197,7 @@
       border-radius:8px;
       overflow-x:auto;
     }
+
     code{
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
     }
@@ -215,14 +231,13 @@
   </div>
 
   <div class="hint">
-    Enter = invia • Shift+Enter = a capo • Testo = WebSocket streaming • Foto = Vision via upload
+    Enter = invia • Shift+Enter = a capo • Testo e foto vengono inviati al server
   </div>
 
   <script>
     const HTTP_API = "https://chatai-world.onrender.com/chat";
     const IMAGE_API = "https://chatai-world.onrender.com/chat-image";
     const RESET_API = "https://chatai-world.onrender.com/reset";
-    const WS_API = "wss://chatai-world.onrender.com/ws";
 
     const chatEl = document.getElementById("chat");
     const inputEl = document.getElementById("t");
@@ -278,53 +293,20 @@
       chatEl.innerHTML = "";
     }
 
-    // ===== WebSocket streaming (testo) =====
-    function wsStream(sessionId, message, botBubble){
-      return new Promise((resolve, reject) => {
-        const ws = new WebSocket(WS_API);
-        let full = "";
-
-        ws.onopen = () => {
-          ws.send(JSON.stringify({ session_id: sessionId, message }));
-        };
-
-        ws.onmessage = (ev) => {
-          try {
-            const msg = JSON.parse(ev.data);
-
-            if (msg.type === "token") {
-              full += msg.token;
-              botBubble.textContent = full;
-            } else if (msg.type === "done") {
-              ws.close();
-              resolve(full);
-            } else if (msg.type === "error") {
-              ws.close();
-              reject(new Error(msg.message || "Errore WS"));
-            }
-          } catch (e) {}
-        };
-
-        ws.onerror = () => reject(new Error("WebSocket error"));
-      });
-    }
-
-    // ===== HTTP fallback (testo) =====
+    // ===== HTTP chat (testo) =====
     async function httpChat(sessionId, message){
       const res = await fetch(HTTP_API, {
-        method:"POST",
-        headers:{ "Content-Type":"application/json" },
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ session_id: sessionId, message })
       });
 
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error((data.reply || `HTTP ${res.status}`).trim());
-      }
+      if (!res.ok) throw new Error((data.reply || `HTTP ${res.status}`).trim());
       return data;
     }
 
-    // ===== Vision upload (foto) =====
+    // ===== HTTP vision (foto) =====
     async function imageChat(sessionId, message, file){
       const form = new FormData();
       form.append("session_id", sessionId);
@@ -337,13 +319,11 @@
       });
 
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error((data.reply || `HTTP ${res.status}`).trim());
-      }
+      if (!res.ok) throw new Error((data.reply || `HTTP ${res.status}`).trim());
       return data;
     }
 
-    // ===== Send =====
+    // ===== Send (testo + foto) =====
     async function send(){
       const text = inputEl.value.trim();
       const file = imgEl.files && imgEl.files[0] ? imgEl.files[0] : null;
@@ -351,14 +331,13 @@
 
       const sessionId = getSessionId();
 
-      if (text) addMessage(text, "user", false);
-      if (file) addMessage("📷 Foto inviata", "user", false);
+      if (text) addMessage(text, "user");
+      if (file) addMessage("📷 Foto inviata", "user");
 
       inputEl.value = "";
-      const botBubble = addMessage("⏳ Sto pensando...", "bot", false);
+      const botBubble = addMessage("⏳ Attendo risposta...", "bot");
 
       try {
-        // Se c'è una foto -> Vision via HTTP upload
         if (file) {
           const data = await imageChat(sessionId, text, file);
           botBubble.innerHTML = marked.parse(data.reply);
@@ -366,23 +345,12 @@
           return;
         }
 
-        // Solo testo -> WS streaming
-        const full = await wsStream(sessionId, text, botBubble);
-        botBubble.innerHTML = marked.parse(full);
+        const data = await httpChat(sessionId, text);
+        botBubble.innerHTML = marked.parse(data.reply);
 
-      } catch (e) {
-        // fallback testo via HTTP se WS fallisce
-        try {
-          if (!file) {
-            const data = await httpChat(sessionId, text);
-            botBubble.innerHTML = marked.parse(data.reply);
-          } else {
-            throw e;
-          }
-        } catch (err) {
-          botBubble.textContent = "❌ Server non raggiungibile. Riprova tra poco.";
-          botBubble.parentElement.classList.add("error");
-        }
+      } catch (err) {
+        botBubble.textContent = "❌ Server non raggiungibile. Riprova tra poco.";
+        botBubble.parentElement.classList.add("error");
       }
     }
 
@@ -399,11 +367,10 @@
     newChatBtn.addEventListener("click", async () => {
       const oldSid = getSessionId();
 
-      // reset backend memory best-effort
       try {
         await fetch(RESET_API, {
-          method:"POST",
-          headers:{ "Content-Type":"application/json" },
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ session_id: oldSid })
         });
       } catch (e) {}
