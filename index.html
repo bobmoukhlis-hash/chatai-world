@@ -1,72 +1,22 @@
+<!DOCTYPE html>
+<html>
+<body>
+<input id="t">
+<button onclick="go()">Invia</button>
+<pre id="o"></pre>
+
 <script>
-const API_URL = "https://chatai-world.onrender.com/chat";
-
-const chat = document.getElementById("chat");
-const input = document.getElementById("userInput");
-const sendBtn = document.getElementById("sendBtn");
-const resetBtn = document.getElementById("resetBtn");
-
-function addMessage(text, sender) {
-  const div = document.createElement("div");
-  div.className = "message " + sender;
-  div.textContent = text;
-  chat.appendChild(div);
-
-  if (sender === "bot") {
-    const like = document.createElement("div");
-    like.className = "like-bar";
-    like.innerHTML = '<button class="like-btn">👍 Like</button><span>0</span>';
-    like.querySelector("button").onclick = () => {
-      const c = like.querySelector("span");
-      c.textContent = parseInt(c.textContent) + 1;
-    };
-    div.appendChild(like);
-  }
-
-  chat.scrollTop = chat.scrollHeight;
+async function go(){
+  const r = await fetch("https://chatai-world.onrender.com/chat",{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({
+      session_id:"test",
+      message:document.getElementById("t").value
+    })
+  });
+  document.getElementById("o").textContent = JSON.stringify(await r.json(),null,2);
 }
-
-async function sendMessage() {
-  const text = input.value.trim();
-  if (!text) return;
-
-  addMessage(text, "user");
-  input.value = "";
-
-  const thinking = document.createElement("div");
-  thinking.className = "message bot";
-  thinking.textContent = "💭 Sto pensando...";
-  chat.appendChild(thinking);
-  chat.scrollTop = chat.scrollHeight;
-
-  try {
-    const res = await fetch(API_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        session_id: "web",
-        message: text,
-        preferred_lang: navigator.language,
-        mode: "general"
-      })
-    });
-
-    const data = await res.json();
-    thinking.remove();
-    addMessage(data.reply || "⚠️ Nessuna risposta AI.", "bot");
-
-  } catch (e) {
-    thinking.textContent = "❌ Errore di connessione al server.";
-  }
-}
-
-sendBtn.onclick = sendMessage;
-input.addEventListener("keydown", e => {
-  if (e.key === "Enter") sendMessage();
-});
-
-resetBtn.onclick = () => {
-  chat.innerHTML = "";
-  addMessage("🤖 Benvenuto su ChatAI World! Scrivi qualcosa per iniziare.", "bot");
-};
 </script>
+</body>
+</html>
