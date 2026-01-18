@@ -18,7 +18,6 @@ GROQ_API_KEY = os.getenv("GROQ_API_KEY", "").strip()
 GROQ_URL = os.getenv("GROQ_URL", "https://api.groq.com/openai/v1/chat/completions").strip()
 
 MODEL_TEXT = os.getenv("MODEL_TEXT", "llama-3.3-70b-versatile").strip()
-MODEL_VISION = os.getenv("MODEL_VISION", "llama-3.2-vision-preview").strip()
 
 DEFAULT_TIMEOUT_SECONDS = 30
 
@@ -171,8 +170,6 @@ def chat():
     return jsonify({"reply": reply, "session_id": session_id}), 200
 
 
-@app.post("/chat-image")
-def chat_image():
     if not GROQ_API_KEY:
         return jsonify({"reply": "❌ GROQ_API_KEY mancante su Render"}), 500
 
