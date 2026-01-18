@@ -19,7 +19,7 @@ CORS(
 )
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "").strip()
-MODEL = os.getenv("MODEL", "llama3-8b-8192").strip()
+MODEL = os.getenv("MODEL", "llama-3.3-70b-versatile").strip()
 GROQ_URL = os.getenv("GROQ_URL", "https://api.groq.com/openai/v1/chat/completions").strip()
 
 DEFAULT_TIMEOUT_SECONDS = 20
