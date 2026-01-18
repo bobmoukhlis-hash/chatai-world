@@ -106,7 +106,7 @@
       border:1px solid var(--border);
       border-radius:12px;
       padding:14px;
-      height: 65vh;
+      height: 62vh;
       overflow-y:auto;
     }
 
@@ -152,6 +152,29 @@
       font-size:16px;
     }
 
+    #toolsRow{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      margin-top:10px;
+    }
+
+    input[type="file"]{
+      flex:1;
+      padding:10px;
+      border:1px dashed var(--border);
+      border-radius:10px;
+      background:var(--card);
+      color:var(--text);
+    }
+
+    .hint{
+      margin-top:8px;
+      color:var(--muted);
+      font-size:12px;
+    }
+
     pre{
       background:var(--prebg);
       color:var(--pretext);
@@ -161,12 +184,6 @@
     }
     code{
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-    }
-
-    .hint{
-      margin-top:8px;
-      color:var(--muted);
-      font-size:12px;
     }
   </style>
 </head>
@@ -193,12 +210,17 @@
     <button id="sendBtn">Invia</button>
   </div>
 
+  <div id="toolsRow">
+    <input type="file" id="img" accept="image/*" />
+  </div>
+
   <div class="hint">
-    Invio: Enter • A capo: Shift+Enter • Streaming: WebSocket
+    Enter = invia • Shift+Enter = a capo • Testo = WebSocket streaming • Foto = Vision via upload
   </div>
 
   <script>
     const HTTP_API = "https://chatai-world.onrender.com/chat";
+    const IMAGE_API = "https://chatai-world.onrender.com/chat-image";
     const RESET_API = "https://chatai-world.onrender.com/reset";
     const WS_API = "wss://chatai-world.onrender.com/ws";
 
@@ -207,6 +229,7 @@
     const sendBtn = document.getElementById("sendBtn");
     const newChatBtn = document.getElementById("newChatBtn");
     const darkToggle = document.getElementById("darkToggle");
+    const imgEl = document.getElementById("img");
 
     // ===== Theme =====
     const savedTheme = localStorage.getItem("theme") || "light";
@@ -227,6 +250,7 @@
       }
       return sid;
     }
+
     function setNewSessionId(){
       const sid = crypto.randomUUID();
       localStorage.setItem("session_id", sid);
@@ -237,10 +261,13 @@
     function addMessage(content, who, isHtml=false){
       const row = document.createElement("div");
       row.className = "msg " + who;
+
       const bubble = document.createElement("div");
       bubble.className = "bubble";
+
       if (isHtml) bubble.innerHTML = content;
       else bubble.textContent = content;
+
       row.appendChild(bubble);
       chatEl.appendChild(row);
       row.scrollIntoView({behavior:"smooth"});
@@ -251,7 +278,7 @@
       chatEl.innerHTML = "";
     }
 
-    // ===== WebSocket Streaming =====
+    // ===== WebSocket streaming (testo) =====
     function wsStream(sessionId, message, botBubble){
       return new Promise((resolve, reject) => {
         const ws = new WebSocket(WS_API);
@@ -275,53 +302,83 @@
               ws.close();
               reject(new Error(msg.message || "Errore WS"));
             }
-          } catch (e) {
-            // ignora
-          }
+          } catch (e) {}
         };
 
-        ws.onerror = () => {
-          reject(new Error("WebSocket error"));
-        };
+        ws.onerror = () => reject(new Error("WebSocket error"));
       });
     }
 
-    // ===== Fallback HTTP =====
+    // ===== HTTP fallback (testo) =====
     async function httpChat(sessionId, message){
       const res = await fetch(HTTP_API, {
         method:"POST",
         headers:{ "Content-Type":"application/json" },
         body: JSON.stringify({ session_id: sessionId, message })
       });
-      if (!res.ok){
-        let detail = "";
-        try { detail = (await res.json()).reply || ""; } catch(e){}
-        throw new Error(`HTTP ${res.status} ${detail}`.trim());
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error((data.reply || `HTTP ${res.status}`).trim());
       }
-      return await res.json();
+      return data;
+    }
+
+    // ===== Vision upload (foto) =====
+    async function imageChat(sessionId, message, file){
+      const form = new FormData();
+      form.append("session_id", sessionId);
+      form.append("message", message || "");
+      form.append("image", file);
+
+      const res = await fetch(IMAGE_API, {
+        method: "POST",
+        body: form
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error((data.reply || `HTTP ${res.status}`).trim());
+      }
+      return data;
     }
 
     // ===== Send =====
     async function send(){
       const text = inputEl.value.trim();
-      if (!text) return;
+      const file = imgEl.files && imgEl.files[0] ? imgEl.files[0] : null;
+      if (!text && !file) return;
 
       const sessionId = getSessionId();
 
-      addMessage(text, "user", false);
-      inputEl.value = "";
+      if (text) addMessage(text, "user", false);
+      if (file) addMessage("📷 Foto inviata", "user", false);
 
+      inputEl.value = "";
       const botBubble = addMessage("⏳ Sto pensando...", "bot", false);
 
-      // preferisci WS streaming, fallback HTTP se fallisce
       try {
-        const full = await wsStream(sessionId, text, botBubble);
-        // se vuoi markdown al termine:
-        botBubble.innerHTML = marked.parse(full);
-      } catch (e) {
-        try {
-          const data = await httpChat(sessionId, text);
+        // Se c'è una foto -> Vision via HTTP upload
+        if (file) {
+          const data = await imageChat(sessionId, text, file);
           botBubble.innerHTML = marked.parse(data.reply);
+          imgEl.value = "";
+          return;
+        }
+
+        // Solo testo -> WS streaming
+        const full = await wsStream(sessionId, text, botBubble);
+        botBubble.innerHTML = marked.parse(full);
+
+      } catch (e) {
+        // fallback testo via HTTP se WS fallisce
+        try {
+          if (!file) {
+            const data = await httpChat(sessionId, text);
+            botBubble.innerHTML = marked.parse(data.reply);
+          } else {
+            throw e;
+          }
         } catch (err) {
           botBubble.textContent = "❌ Errore: " + err.message;
           botBubble.parentElement.classList.add("error");
@@ -338,7 +395,7 @@
       }
     });
 
-    // ===== New chat (reset client + reset backend memory) =====
+    // ===== New chat =====
     newChatBtn.addEventListener("click", async () => {
       const oldSid = getSessionId();
 
@@ -351,15 +408,15 @@
         });
       } catch (e) {}
 
-      // new session id client
       setNewSessionId();
-
-      // clear UI
       clearChat();
-      addMessage(marked.parse("Nuova chat avviata ✅\n\nDimmi pure!"), "bot", true);
+      addMessage(marked.parse("Nuova chat avviata ✅\n\nCarica una foto o scrivi un messaggio."), "bot", true);
+
+      imgEl.value = "";
+      inputEl.value = "";
     });
 
-    // welcome
+    // Welcome
     addMessage(marked.parse("Ciao! Come posso aiutarti oggi?"), "bot", true);
   </script>
 </body>
