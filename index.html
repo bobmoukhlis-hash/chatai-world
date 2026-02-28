@@ -560,50 +560,66 @@
       }
     }
 
-    // =========================
-    // EVENTS
-    // =========================
-    $("sendBtn").onclick = sendMessage;
-    $("micBtn").onclick = startMic;
-    $("photoBtn").onclick = sendPhoto;
-    $("voiceToggle").onclick = toggleVoice;
+    <script>
+  // =========================
+  // EVENTS
+  // =========================
+  $("sendBtn").onclick = sendMessage;
+  $("micBtn").onclick = startMic;
+  $("photoBtn").onclick = sendPhoto;
+  $("voiceToggle").onclick = toggleVoice;
 
-    // START
-    add("ai", "Ciao 👋 Sono ChatAI Bob. Scrivi pure.");
-    autoResize();
-
-    if ("speechSynthesis" in window) {
-      pickItalianVoice();
-      speechSynthesis.onvoiceschanged = pickItalianVoice;
-    }
-
-    checkBackend();
-    registerSW();
-  function copyText(id){
-  const text = document.getElementById(id).textContent;
-  navigator.clipboard.writeText(text);
-}
-
-function likeMessage(el){
-  el.style.color = "#22c55e";
-}
-
-function dislikeMessage(el){
-  el.style.color = "#ef4444";
-}
-
-function speakAgain(id){
-  const text = document.getElementById(id).textContent;
-  speak(text);
-}
-
-function shareText(id){
-  const text = document.getElementById(id).textContent;
-  if (navigator.share){
-    navigator.share({ text });
-  } else {
-    alert("Condivisione non supportata su questo dispositivo");
+  // =========================
+  // ACTIONS (copy/like/dislike/voice/share)
+  // =========================
+  function copyText(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    navigator.clipboard.writeText(el.textContent || "");
   }
-}</script>
+
+  function likeMessage(el) {
+    if (!el) return;
+    el.style.color = "#22c55e";
+  }
+
+  function dislikeMessage(el) {
+    if (!el) return;
+    el.style.color = "#ef4444";
+  }
+
+  function speakAgain(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    speak(el.textContent || "");
+  }
+
+  async function shareText(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+
+    const text = el.textContent || "";
+    if (navigator.share) {
+      await navigator.share({ text });
+    } else {
+      await navigator.clipboard.writeText(text);
+      alert("Testo copiato ✅");
+    }
+  }
+
+  // =========================
+  // START
+  // =========================
+  add("ai", "Ciao 👋 Sono ChatAI Bob. Scrivi pure.");
+  autoResize();
+
+  if ("speechSynthesis" in window) {
+    pickItalianVoice();
+    speechSynthesis.onvoiceschanged = pickItalianVoice;
+  }
+
+  checkBackend();
+  registerSW();
+</script>
 </body>
 </html>
