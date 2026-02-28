@@ -27,6 +27,27 @@
     *{box-sizing:border-box}
     body{
       margin:0;
+      .actions{
+  display:flex;
+  gap:16px;
+  margin-top:8px;
+  font-size:15px;
+  opacity:.6;
+  transition:.2s ease;
+}
+
+.msg.ai:hover .actions{
+  opacity:1;
+}
+
+.actions span{
+  cursor:pointer;
+  transition:.2s ease;
+}
+
+.actions span:hover{
+  transform:scale(1.2);
+}
       font-family:Arial, sans-serif;
       background:var(--bg);
       color:var(--text);
@@ -267,14 +288,36 @@
     // =========================
     // UI
     // =========================
-    function add(role, text) {
-      const d = document.createElement("div");
-      d.className = "msg " + role;
-      d.innerHTML = `<div class="bubble"></div>`;
-      d.querySelector(".bubble").textContent = text || "";
-      $("messages").appendChild(d);
-      $("messages").scrollTop = $("messages").scrollHeight;
-    }
+  function add(role, text) {
+  const d = document.createElement("div");
+  d.className = "msg " + role;
+
+  const bubbleId = "msg_" + Date.now();
+
+  d.innerHTML = `
+    <div class="bubble" id="${bubbleId}"></div>
+  `;
+
+  const bubble = d.querySelector(".bubble");
+  bubble.textContent = text || "";
+
+  // SOLO per AI aggiungiamo toolbar
+  if (role === "ai") {
+    const actions = document.createElement("div");
+    actions.className = "actions";
+    actions.innerHTML = `
+      <span onclick="copyText('${bubbleId}')">📋</span>
+      <span onclick="likeMessage(this)">👍</span>
+      <span onclick="dislikeMessage(this)">👎</span>
+      <span onclick="speakAgain('${bubbleId}')">🔊</span>
+      <span onclick="shareText('${bubbleId}')">🔗</span>
+    `;
+    d.appendChild(actions);
+  }
+
+  $("messages").appendChild(d);
+  $("messages").scrollTop = $("messages").scrollHeight;
+}
 
     function addTyping() {
       const typing = document.createElement("div");
@@ -536,6 +579,31 @@
 
     checkBackend();
     registerSW();
-  </script>
+  function copyText(id){
+  const text = document.getElementById(id).textContent;
+  navigator.clipboard.writeText(text);
+}
+
+function likeMessage(el){
+  el.style.color = "#22c55e";
+}
+
+function dislikeMessage(el){
+  el.style.color = "#ef4444";
+}
+
+function speakAgain(id){
+  const text = document.getElementById(id).textContent;
+  speak(text);
+}
+
+function shareText(id){
+  const text = document.getElementById(id).textContent;
+  if (navigator.share){
+    navigator.share({ text });
+  } else {
+    alert("Condivisione non supportata su questo dispositivo");
+  }
+}</script>
 </body>
 </html>
