@@ -1,240 +1,541 @@
+<!-- /index.html -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>ChatAI World</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ChatAI Bob</title>
 
-  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <link rel="manifest" href="./manifest.json" />
+  <meta name="theme-color" content="#0b1220" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
 
   <style>
     :root{
-      --bg:#f4f4f4;
-      --card:#ffffff;
-      --text:#111;
-      --border:#ddd;
-      --userbg:#e9eefc;
-      --botbg:#eefaf4;
-      --bottext:#0a7;
-      --errbg:#ffecec;
-      --errtext:#b00020;
+      --bg:#0b0f1a;
+      --panel:#0b1220;
+      --panel2:#020617;
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --border:#1f2937;
+      --accent:#38bdf8;
+      --accent2:#38bdf822;
+      --danger:#ef4444;
+      --ok:#22c55e;
     }
-
-    body.dark{
-      --bg:#0f1115;
-      --card:#171a21;
-      --text:#e8e8e8;
-      --border:#2a2f3a;
-      --userbg:#232a44;
-      --botbg:#1e3a2b;
-      --bottext:#7dffb5;
-      --errbg:#3a1f24;
-      --errtext:#ffb4c0;
-    }
-
+    *{box-sizing:border-box}
     body{
-      font-family: system-ui, sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      max-width: 900px;
-      margin: auto;
-      padding: 16px;
+      margin:0;
+      font-family:Arial, sans-serif;
+      background:var(--bg);
+      color:var(--text);
     }
-
-    header{
+    .top{
+      position:sticky;top:0;z-index:10;
+      background:var(--panel2);
+      padding:12px;
       display:flex;
       justify-content:space-between;
-      margin-bottom:12px;
+      align-items:center;
+      border-bottom:1px solid var(--border);
     }
-
-    #chat{
-      background:var(--card);
+    .badge{
+      padding:6px 10px;
+      border-radius:999px;
+      background:#111827;
       border:1px solid var(--border);
-      border-radius:12px;
+      font-size:12px;
+      display:flex;align-items:center;gap:8px;
+    }
+    .dot{
+      width:8px;height:8px;border-radius:50%;
+      background:var(--muted);
+    }
+    .dot.ok{background:var(--ok)}
+    .dot.bad{background:var(--danger)}
+    .wrap{max-width:900px;margin:auto;padding:12px}
+    .card{
+      background:var(--panel);
+      border:1px solid var(--border);
+      border-radius:16px;
+      overflow:hidden;
+    }
+    #messages{
+      height:calc(100vh - 290px);
+      overflow:auto;
       padding:14px;
-      height:60vh;
-      overflow-y:auto;
+      scroll-behavior:smooth;
     }
-
-    .msg{ margin:10px 0; display:flex; }
+    .msg{margin:10px 0;display:flex}
+    .msg.user{justify-content:flex-end}
     .bubble{
-      padding:10px 12px;
-      border-radius:12px;
-      max-width:80%;
+      max-width:78%;
+      padding:12px;
+      border-radius:14px;
+      background:#111827;
+      border:1px solid var(--border);
+      white-space:pre-wrap;
+      line-height:1.35;
+      word-break:break-word;
     }
-
-    .user{ justify-content:flex-end; }
-    .user .bubble{ background:var(--userbg); }
-
-    .bot{ justify-content:flex-start; }
-    .bot .bubble{ background:var(--botbg); color:var(--bottext); }
-
-    .error .bubble{
-      background:var(--errbg);
-      color:var(--errtext);
-    }
-
-    #inputRow{
-      display:flex;
-      gap:10px;
-      margin-top:10px;
-    }
-
+    .msg.user .bubble{background:var(--accent2)}
+    .toolbar{padding:12px;border-top:1px solid var(--border)}
     textarea{
-      flex:1;
-      padding:12px;
-      border-radius:10px;
-      border:1px solid var(--border);
+      width:100%;
+      min-height:46px;
+      max-height:140px;
       resize:none;
-    }
-
-    button{
-      padding:12px;
-      border-radius:10px;
+      border-radius:14px;
+      background:#0a1020;
+      color:#fff;
       border:1px solid var(--border);
-      background:var(--card);
-      cursor:pointer;
+      padding:10px;
+      outline:none;
+      font-family:inherit;
+      line-height:1.35;
     }
+    button{
+      padding:10px 14px;
+      border-radius:12px;
+      border:0;
+      font-weight:bold;
+      cursor:pointer;
+      white-space:nowrap;
+    }
+    button:disabled{opacity:.5;cursor:not-allowed}
+    .send{background:var(--accent);color:#001018}
+    .ghost{background:transparent;color:#fff;border:1px solid var(--accent)}
+    .row{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+    .small{font-size:12px;opacity:.85;color:var(--muted)}
+    .paypal-btn{
+      display:inline-block;margin-top:8px;padding:10px 14px;border-radius:12px;
+      background:#0070ba;color:#fff;font-weight:bold;text-decoration:none;
+    }
+    .paypal-btn:hover{opacity:.9}
+    .hint{font-size:12px;color:var(--muted);margin-top:6px}
+    .preview{
+      margin-top:10px;
+      display:none;
+      align-items:center;
+      gap:10px;
+      padding:10px;
+      border:1px dashed var(--border);
+      border-radius:12px;
+      background:#0a1020;
+    }
+    .preview img{width:44px;height:44px;object-fit:cover;border-radius:10px;border:1px solid var(--border)}
+    .typing{
+      display:inline-flex;gap:4px;align-items:center
+    }
+    .typing span{
+      width:6px;height:6px;border-radius:50%;
+      background:var(--muted);
+      animation:b 1s infinite ease-in-out;
+    }
+    .typing span:nth-child(2){animation-delay:.15s}
+    .typing span:nth-child(3){animation-delay:.3s}
+    @keyframes b{0%,100%{opacity:.3;transform:translateY(0)}50%{opacity:1;transform:translateY(-2px)}}
   </style>
 </head>
 
 <body>
-
-<header>
-  <h2>🤖 ChatAI World</h2>
-  <div>
-    <label>
-      <input type="checkbox" id="darkToggle"> Dark
-    </label>
-    <button id="newChatBtn">🆕 Nuova chat</button>
+  <div class="top">
+    <b>🤖 ChatAI Bob</b>
+    <span class="badge">
+      <span id="dot" class="dot"></span>
+      <span id="status">Backend: controllo…</span>
+    </span>
   </div>
-</header>
 
-<div id="chat"></div>
+  <div class="wrap">
+    <div class="card">
+      <div id="messages" aria-live="polite"></div>
 
-<div id="inputRow">
-  <textarea id="t" placeholder="Scrivi un messaggio..."></textarea>
-  <button id="sendBtn">Invia</button>
-</div>
+      <div class="toolbar">
+        <textarea id="input" placeholder="Scrivi una domanda... (Invio per inviare, Shift+Invio per andare a capo)"></textarea>
+        <div class="hint" id="hint"></div>
 
-<input type="file" id="img" accept="image/*">
+        <div class="row">
+          <button class="ghost" id="micBtn" type="button">🎤 Microfono</button>
+          <button class="send" id="sendBtn" type="button">Invia</button>
+          <button class="ghost" id="clearBtn" type="button">Pulisci</button>
+          <button class="ghost" id="voiceToggle" type="button">🔊 Voce: ON</button>
+        </div>
 
-<script>
-const HTTP_API  = "https://chatai-world.onrender.com/chat";
-const IMAGE_API = "https://chatai-world.onrender.com/chat-image";
-const RESET_API = "https://chatai-world.onrender.com/reset";
+        <input type="file" id="photo" accept="image/*" style="margin-top:10px" />
 
-const chatEl = document.getElementById("chat");
-const inputEl = document.getElementById("t");
-const imgEl   = document.getElementById("img");
+        <div class="preview" id="preview">
+          <img id="previewImg" alt="Anteprima foto" />
+          <div style="flex:1">
+            <div style="font-weight:bold">Foto pronta</div>
+            <div class="small" id="previewMeta"></div>
+          </div>
+          <button class="ghost" id="removePhoto" type="button">Rimuovi</button>
+        </div>
 
-/* ===== Session ===== */
-function getSessionId(){
-  let sid = localStorage.getItem("session_id");
-  if (!sid){
-    sid = crypto.randomUUID();
-    localStorage.setItem("session_id", sid);
-  }
-  return sid;
-}
-function newSession(){
-  localStorage.setItem("session_id", crypto.randomUUID());
-}
+        <div class="row">
+          <button id="photoBtn" class="ghost" type="button" disabled>📸 Analizza foto</button>
+        </div>
 
-/* ===== UI ===== */
-function addMessage(text, who, html=false){
-  const row = document.createElement("div");
-  row.className = "msg " + who;
-  const bubble = document.createElement("div");
-  bubble.className = "bubble";
-  html ? bubble.innerHTML = text : bubble.textContent = text;
-  row.appendChild(bubble);
-  chatEl.appendChild(row);
-  chatEl.scrollTop = chatEl.scrollHeight;
-  return bubble;
-}
-function clearChat(){ chatEl.innerHTML = ""; }
+        <div class="small" style="margin-top:10px">
+          Supporta il progetto ❤️<br />
+          <a class="paypal-btn" href="https://www.paypal.me/bobbob1979" target="_blank" rel="noreferrer">
+            Dona con PayPal
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
 
-/* ===== SEND ===== */
-async function send(){
-  const text = inputEl.value.trim();
-  const file = imgEl.files[0];
-  if (!text && !file) return;
+  <script>
+    /**
+     * ChatAI Bob - Single-file web client
+     * - Robust fetch with error surfacing
+     * - PWA-ready (optional SW register)
+     * - Speech synthesis toggle + voice selection
+     * - Better input UX (textarea, Shift+Enter)
+     */
 
-  const sessionId = getSessionId();
+    // =========================
+    // CONFIG
+    // =========================
+    const API = "https://chatai-bob-backend.onrender.com";
+    const $ = (id) => document.getElementById(id);
 
-  if (text) addMessage(text,"user");
-  if (file) addMessage("📷 Foto inviata","user");
+    const CLIENT_ID = (() => {
+      let id = localStorage.getItem("CLIENT_ID");
+      if (!id) {
+        id = "web_" + Math.random().toString(36).slice(2);
+        localStorage.setItem("CLIENT_ID", id);
+      }
+      return id;
+    })();
 
-  inputEl.value = "";
-  const bot = addMessage("⏳ Attendo risposta...","bot");
-
-  try{
-    let res;
-
-    if (file){
-      const form = new FormData();
-      form.append("session_id", sessionId);
-      form.append("message", text || "");
-      form.append("image", file);
-      res = await fetch(IMAGE_API,{ method:"POST", body:form });
-    } else {
-      res = await fetch(HTTP_API,{
-        method:"POST",
-        headers:{ "Content-Type":"application/json" },
-        body:JSON.stringify({ session_id:sessionId, message:text })
-      });
+    // =========================
+    // TEXT NORMALIZER
+    // =========================
+    function cleanText(t) {
+      if (!t) return "";
+      return String(t)
+        .replace(/\*\*/g, "")
+        .replace(/\*/g, "")
+        .replace(/#/g, "")
+        .replace(/^\s*[-•]\s+/gm, "")
+        .replace(/^\s*\d+[\.\)]\s+/gm, "")
+        .replace(/\n{3,}/g, "\n\n")
+        .trim();
     }
 
-    const raw = await res.text();
-    let data;
-    try{
-      data = JSON.parse(raw);
-    }catch{
-      throw new Error("Risposta non JSON dal server");
+    // =========================
+    // VOICE
+    // =========================
+    let VOICE_ON = true;
+    let SELECTED_VOICE = null;
+
+    function pickItalianVoice() {
+      try {
+        const voices = speechSynthesis.getVoices?.() || [];
+        const it = voices.find(v => (v.lang || "").toLowerCase().startsWith("it"));
+        SELECTED_VOICE = it || null;
+      } catch {}
     }
 
-    if (!res.ok){
-      throw new Error(data.reply || "Errore server");
+    function toggleVoice() {
+      VOICE_ON = !VOICE_ON;
+      $("voiceToggle").textContent = VOICE_ON ? "🔊 Voce: ON" : "🔇 Voce: OFF";
+      if (!VOICE_ON) speechSynthesis.cancel();
     }
 
-    bot.innerHTML = marked.parse(data.reply);
-    imgEl.value = "";
+    function speak(text) {
+      if (!VOICE_ON || !text) return;
+      if (!("speechSynthesis" in window)) return;
 
-  }catch(err){
-    bot.textContent = "❌ " + err.message;
-    bot.parentElement.classList.add("error");
-  }
-}
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = "it-IT";
+      u.rate = 1;
+      if (SELECTED_VOICE) u.voice = SELECTED_VOICE;
 
-/* ===== Events ===== */
-document.getElementById("sendBtn").onclick = send;
-inputEl.addEventListener("keydown",e=>{
-  if (e.key==="Enter" && !e.shiftKey){
-    e.preventDefault(); send();
-  }
-});
+      speechSynthesis.cancel();
+      speechSynthesis.speak(u);
+    }
 
-document.getElementById("newChatBtn").onclick = async ()=>{
-  try{
-    await fetch(RESET_API,{
-      method:"POST",
-      headers:{ "Content-Type":"application/json" },
-      body:JSON.stringify({ session_id:getSessionId() })
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) speechSynthesis.cancel();
     });
-  }catch{}
-  newSession();
-  clearChat();
-  addMessage("Nuova chat avviata ✅","bot");
-};
 
-document.getElementById("darkToggle").onchange = e=>{
-  document.body.classList.toggle("dark",e.target.checked);
-};
+    // =========================
+    // UI
+    // =========================
+    function add(role, text) {
+      const d = document.createElement("div");
+      d.className = "msg " + role;
+      d.innerHTML = `<div class="bubble"></div>`;
+      d.querySelector(".bubble").textContent = text || "";
+      $("messages").appendChild(d);
+      $("messages").scrollTop = $("messages").scrollHeight;
+    }
 
-/* ===== Welcome ===== */
-addMessage("Ciao! Come posso aiutarti oggi?","bot");
-</script>
+    function addTyping() {
+      const typing = document.createElement("div");
+      typing.className = "msg ai";
+      typing.innerHTML = `<div class="bubble"><span class="typing"><span></span><span></span><span></span></span></div>`;
+      $("messages").appendChild(typing);
+      $("messages").scrollTop = $("messages").scrollHeight;
+      return typing;
+    }
 
+    function setHint(text) {
+      $("hint").textContent = text || "";
+    }
+
+    // textarea auto-resize
+    function autoResize() {
+      const ta = $("input");
+      ta.style.height = "auto";
+      ta.style.height = Math.min(ta.scrollHeight, 140) + "px";
+    }
+
+    $("input").addEventListener("input", autoResize);
+
+    $("clearBtn").onclick = () => {
+      $("messages").innerHTML = "";
+      add("ai", "Ciao 👋 Come posso aiutarti?");
+      speak("Ciao, come posso aiutarti?");
+    };
+
+    $("input").addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+      }
+    });
+
+    // =========================
+    // BACKEND STATUS (with backoff)
+    // =========================
+    let healthTimer = null;
+
+    function setStatus(ok, label) {
+      $("status").textContent = label;
+      const dot = $("dot");
+      dot.classList.remove("ok", "bad");
+      dot.classList.add(ok ? "ok" : "bad");
+    }
+
+    async function checkBackend() {
+      try {
+        const r = await fetch(API + "/health", { cache: "no-store" });
+        const d = await r.json().catch(() => null);
+        if (d && d.status === "ok") {
+          setStatus(true, "Online");
+          scheduleHealth(30000);
+        } else {
+          setStatus(false, "Offline");
+          scheduleHealth(10000);
+        }
+      } catch {
+        setStatus(false, "Offline");
+        scheduleHealth(10000);
+      }
+    }
+
+    function scheduleHealth(ms) {
+      if (healthTimer) clearTimeout(healthTimer);
+      healthTimer = setTimeout(checkBackend, ms);
+    }
+
+    // =========================
+    // FETCH JSON (debug-friendly)
+    // =========================
+    async function fetchJsonOrThrow(url, options) {
+      const res = await fetch(url, options);
+      const raw = await res.text();
+      let data = null;
+      try { data = raw ? JSON.parse(raw) : null; } catch { data = null; }
+
+      if (!res.ok) {
+        const msg =
+          (data && (data.detail || data.error || data.message)) ||
+          raw ||
+          ("HTTP " + res.status);
+        throw new Error("HTTP " + res.status + " - " + msg);
+      }
+      return data;
+    }
+
+    // =========================
+    // CHAT
+    // =========================
+    async function sendMessage() {
+      const input = $("input");
+      const text = input.value.trim();
+      if (!text) return;
+
+      input.value = "";
+      autoResize();
+      setHint("");
+
+      add("user", text);
+      const typing = addTyping();
+      $("sendBtn").disabled = true;
+
+      try {
+        const d = await fetchJsonOrThrow(API + "/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Accept": "application/json" },
+          body: JSON.stringify({ message: text, client_id: CLIENT_ID })
+        });
+
+        typing.remove();
+        const outRaw = (d && typeof d.text === "string") ? d.text : "";
+        const out = cleanText(outRaw) || "Nessuna risposta.";
+        add("ai", out);
+        speak(out);
+      } catch (e) {
+        typing.remove();
+        add("ai", "❌ Errore: " + (e?.message || "sconosciuto"));
+        speak("Errore di risposta");
+      } finally {
+        $("sendBtn").disabled = false;
+      }
+    }
+
+    // =========================
+    // MICROFONO (speech->text)
+    // =========================
+    function startMic() {
+      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SR) {
+        alert("Il microfono non è supportato su questo browser");
+        return;
+      }
+
+      const recognition = new SR();
+      recognition.lang = "it-IT";
+      recognition.interimResults = false;
+
+      recognition.onresult = function (event) {
+        const t = event.results?.[0]?.[0]?.transcript || "";
+        $("input").value = t;
+        autoResize();
+        sendMessage();
+      };
+
+      recognition.onerror = function () {
+        setHint("🎤 Microfono non disponibile o permesso negato.");
+      };
+
+      recognition.start();
+    }
+
+    // =========================
+    // FOTO
+    // =========================
+    const MAX_MB = 8;
+
+    function showPreview(file) {
+      const url = URL.createObjectURL(file);
+      $("previewImg").src = url;
+      $("previewMeta").textContent = `${Math.round(file.size/1024)} KB • ${file.type || "image"}`;
+      $("preview").style.display = "flex";
+    }
+
+    function clearPreview() {
+      $("preview").style.display = "none";
+      $("previewImg").src = "";
+      $("previewMeta").textContent = "";
+      $("photo").value = "";
+      $("photoBtn").disabled = true;
+    }
+
+    $("photo").addEventListener("change", () => {
+      const file = $("photo").files && $("photo").files[0];
+      if (!file) return clearPreview();
+
+      const mb = file.size / (1024 * 1024);
+      if (mb > MAX_MB) {
+        clearPreview();
+        add("ai", `❌ Foto troppo grande (${mb.toFixed(1)}MB). Max ${MAX_MB}MB.`);
+        return;
+      }
+
+      showPreview(file);
+      $("photoBtn").disabled = false;
+    });
+
+    $("removePhoto").onclick = clearPreview;
+
+    async function sendPhoto() {
+      const file = $("photo").files && $("photo").files[0];
+      if (!file) {
+        add("ai", "📸 Seleziona prima una foto dalla galleria.");
+        speak("Seleziona prima una foto dalla galleria");
+        return;
+      }
+
+      const btn = $("photoBtn");
+      btn.disabled = true;
+      setHint("");
+
+      add("user", "📸 Analizza foto");
+      const typing = addTyping();
+
+      const form = new FormData();
+      form.append("file", file);
+      form.append("client_id", CLIENT_ID);
+
+      try {
+        const d = await fetchJsonOrThrow(API + "/ocr_photo", { method: "POST", body: form });
+        typing.remove();
+
+        const raw = (d && typeof d.text === "string") ? d.text : "";
+        const out = cleanText(raw) || "📷 Foto ricevuta, ma nessun testo rilevato.";
+        add("ai", out);
+        speak(out);
+      } catch (e) {
+        typing.remove();
+        add("ai", "❌ Foto: " + (e?.message || "errore"));
+        speak("Errore durante l’analisi della foto");
+      } finally {
+        clearPreview();
+      }
+    }
+
+    // =========================
+    // PWA SW REGISTER (optional)
+    // =========================
+    async function registerSW() {
+      if (!("serviceWorker" in navigator)) return;
+      try {
+        // crea un sw minimo se non vuoi file separato? -> richiede file sw.js.
+        // Qui lo lasciamo opzionale: se hai /sw.js lo registra.
+        await navigator.serviceWorker.register("./sw.js");
+        setHint("✅ PWA pronta (Service Worker attivo).");
+      } catch {
+        // silent
+      }
+    }
+
+    // =========================
+    // EVENTS
+    // =========================
+    $("sendBtn").onclick = sendMessage;
+    $("micBtn").onclick = startMic;
+    $("photoBtn").onclick = sendPhoto;
+    $("voiceToggle").onclick = toggleVoice;
+
+    // START
+    add("ai", "Ciao 👋 Sono ChatAI Bob. Scrivi pure.");
+    autoResize();
+
+    if ("speechSynthesis" in window) {
+      pickItalianVoice();
+      speechSynthesis.onvoiceschanged = pickItalianVoice;
+    }
+
+    checkBackend();
+    registerSW();
+  </script>
 </body>
 </html>
