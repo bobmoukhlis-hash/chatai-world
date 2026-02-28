@@ -27,31 +27,11 @@
     *{box-sizing:border-box}
     body{
       margin:0;
-      .actions{
-  display:flex;
-  gap:16px;
-  margin-top:8px;
-  font-size:15px;
-  opacity:.6;
-  transition:.2s ease;
-}
-
-.msg.ai:hover .actions{
-  opacity:1;
-}
-
-.actions span{
-  cursor:pointer;
-  transition:.2s ease;
-}
-
-.actions span:hover{
-  transform:scale(1.2);
-}
       font-family:Arial, sans-serif;
       background:var(--bg);
       color:var(--text);
     }
+
     .top{
       position:sticky;top:0;z-index:10;
       background:var(--panel2);
@@ -69,12 +49,10 @@
       font-size:12px;
       display:flex;align-items:center;gap:8px;
     }
-    .dot{
-      width:8px;height:8px;border-radius:50%;
-      background:var(--muted);
-    }
+    .dot{width:8px;height:8px;border-radius:50%;background:var(--muted)}
     .dot.ok{background:var(--ok)}
     .dot.bad{background:var(--danger)}
+
     .wrap{max-width:900px;margin:auto;padding:12px}
     .card{
       background:var(--panel);
@@ -82,27 +60,24 @@
       border-radius:16px;
       overflow:hidden;
     }
+
     #messages{
       height:calc(100vh - 290px);
       overflow:auto;
       padding:14px;
       scroll-behavior:smooth;
     }
+
+    /* MESSAGGI: bubble sopra, azioni sotto */
     .msg{
-  margin:10px 0;
-  display:flex;
-  flex-direction:column;
-  gap:6px;
-}
+      margin:10px 0;
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+    }
+    .msg.ai{ align-items:flex-start; }
+    .msg.user{ align-items:flex-end; }
 
-.msg.ai{
-  align-items:flex-start;
-}
-
-.msg.user{
-  align-items:flex-end;
-}
-    .msg.user{justify-content:flex-end}
     .bubble{
       max-width:78%;
       padding:12px;
@@ -114,6 +89,24 @@
       word-break:break-word;
     }
     .msg.user .bubble{background:var(--accent2)}
+
+    /* AZIONI sotto i messaggi AI */
+    .actions{
+      display:flex;
+      gap:16px;
+      margin-top:2px;
+      font-size:15px;
+      opacity:.55;
+      transition:.2s ease;
+      user-select:none;
+    }
+    .msg.ai:hover .actions{ opacity:1; }
+    .actions span{
+      cursor:pointer;
+      transition:.2s ease;
+    }
+    .actions span:hover{ transform:scale(1.2); }
+
     .toolbar{padding:12px;border-top:1px solid var(--border)}
     textarea{
       width:100%;
@@ -142,11 +135,13 @@
     .ghost{background:transparent;color:#fff;border:1px solid var(--accent)}
     .row{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
     .small{font-size:12px;opacity:.85;color:var(--muted)}
+
     .paypal-btn{
       display:inline-block;margin-top:8px;padding:10px 14px;border-radius:12px;
       background:#0070ba;color:#fff;font-weight:bold;text-decoration:none;
     }
     .paypal-btn:hover{opacity:.9}
+
     .hint{font-size:12px;color:var(--muted);margin-top:6px}
     .preview{
       margin-top:10px;
@@ -159,9 +154,8 @@
       background:#0a1020;
     }
     .preview img{width:44px;height:44px;object-fit:cover;border-radius:10px;border:1px solid var(--border)}
-    .typing{
-      display:inline-flex;gap:4px;align-items:center
-    }
+
+    .typing{display:inline-flex;gap:4px;align-items:center}
     .typing span{
       width:6px;height:6px;border-radius:50%;
       background:var(--muted);
@@ -223,14 +217,6 @@
   </div>
 
   <script>
-    /**
-     * ChatAI Bob - Single-file web client
-     * - Robust fetch with error surfacing
-     * - PWA-ready (optional SW register)
-     * - Speech synthesis toggle + voice selection
-     * - Better input UX (textarea, Shift+Enter)
-     */
-
     // =========================
     // CONFIG
     // =========================
@@ -301,36 +287,31 @@
     // =========================
     // UI
     // =========================
-  function add(role, text) {
-  const d = document.createElement("div");
-  d.className = "msg " + role;
+    function add(role, text) {
+      const d = document.createElement("div");
+      d.className = "msg " + role;
 
-  const bubbleId = "msg_" + Date.now();
+      const bubbleId = "msg_" + Date.now() + "_" + Math.random().toString(36).slice(2);
 
-  d.innerHTML = `
-    <div class="bubble" id="${bubbleId}"></div>
-  `;
+      d.innerHTML = `<div class="bubble" id="${bubbleId}"></div>`;
+      d.querySelector(".bubble").textContent = text || "";
 
-  const bubble = d.querySelector(".bubble");
-  bubble.textContent = text || "";
+      if (role === "ai") {
+        const actions = document.createElement("div");
+        actions.className = "actions";
+        actions.innerHTML = `
+          <span onclick="copyText('${bubbleId}')">📋</span>
+          <span onclick="likeMessage(this)">👍</span>
+          <span onclick="dislikeMessage(this)">👎</span>
+          <span onclick="speakAgain('${bubbleId}')">🔊</span>
+          <span onclick="shareText('${bubbleId}')">🔗</span>
+        `;
+        d.appendChild(actions);
+      }
 
-  // SOLO per AI aggiungiamo toolbar
-  if (role === "ai") {
-    const actions = document.createElement("div");
-    actions.className = "actions";
-    actions.innerHTML = `
-      <span onclick="copyText('${bubbleId}')">📋</span>
-      <span onclick="likeMessage(this)">👍</span>
-      <span onclick="dislikeMessage(this)">👎</span>
-      <span onclick="speakAgain('${bubbleId}')">🔊</span>
-      <span onclick="shareText('${bubbleId}')">🔗</span>
-    `;
-    d.appendChild(actions);
-  }
-
-  $("messages").appendChild(d);
-  $("messages").scrollTop = $("messages").scrollHeight;
-}
+      $("messages").appendChild(d);
+      $("messages").scrollTop = $("messages").scrollHeight;
+    }
 
     function addTyping() {
       const typing = document.createElement("div");
@@ -345,13 +326,11 @@
       $("hint").textContent = text || "";
     }
 
-    // textarea auto-resize
     function autoResize() {
       const ta = $("input");
       ta.style.height = "auto";
       ta.style.height = Math.min(ta.scrollHeight, 140) + "px";
     }
-
     $("input").addEventListener("input", autoResize);
 
     $("clearBtn").onclick = () => {
@@ -368,7 +347,7 @@
     });
 
     // =========================
-    // BACKEND STATUS (with backoff)
+    // BACKEND STATUS
     // =========================
     let healthTimer = null;
 
@@ -402,7 +381,7 @@
     }
 
     // =========================
-    // FETCH JSON (debug-friendly)
+    // FETCH JSON
     // =========================
     async function fetchJsonOrThrow(url, options) {
       const res = await fetch(url, options);
@@ -458,7 +437,7 @@
     }
 
     // =========================
-    // MICROFONO (speech->text)
+    // MICROFONO
     // =========================
     function startMic() {
       const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -559,80 +538,63 @@
     }
 
     // =========================
-    // PWA SW REGISTER (optional)
+    // ACTIONS (copy/like/dislike/voice/share)
     // =========================
-    async function registerSW() {
-      if (!("serviceWorker" in navigator)) return;
-      try {
-        // crea un sw minimo se non vuoi file separato? -> richiede file sw.js.
-        // Qui lo lasciamo opzionale: se hai /sw.js lo registra.
-        await navigator.serviceWorker.register("./sw.js");
-        setHint("✅ PWA pronta (Service Worker attivo).");
-      } catch {
-        // silent
+    function copyText(id) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      navigator.clipboard.writeText(el.textContent || "");
+    }
+
+    function likeMessage(el) {
+      if (!el) return;
+      el.style.color = "#22c55e";
+    }
+
+    function dislikeMessage(el) {
+      if (!el) return;
+      el.style.color = "#ef4444";
+    }
+
+    function speakAgain(id) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      speak(el.textContent || "");
+    }
+
+    async function shareText(id) {
+      const el = document.getElementById(id);
+      if (!el) return;
+
+      const text = el.textContent || "";
+      if (navigator.share) {
+        await navigator.share({ text });
+      } else {
+        await navigator.clipboard.writeText(text);
+        alert("Testo copiato ✅");
       }
     }
 
-    <script>
-  // =========================
-  // EVENTS
-  // =========================
-  $("sendBtn").onclick = sendMessage;
-  $("micBtn").onclick = startMic;
-  $("photoBtn").onclick = sendPhoto;
-  $("voiceToggle").onclick = toggleVoice;
+    // =========================
+    // EVENTS
+    // =========================
+    $("sendBtn").onclick = sendMessage;
+    $("micBtn").onclick = startMic;
+    $("photoBtn").onclick = sendPhoto;
+    $("voiceToggle").onclick = toggleVoice;
 
-  // =========================
-  // ACTIONS (copy/like/dislike/voice/share)
-  // =========================
-  function copyText(id) {
-    const el = document.getElementById(id);
-    if (!el) return;
-    navigator.clipboard.writeText(el.textContent || "");
-  }
+    // =========================
+    // START
+    // =========================
+    add("ai", "Ciao 👋 Sono ChatAI Bob. Scrivi pure.");
+    autoResize();
 
-  function likeMessage(el) {
-    if (!el) return;
-    el.style.color = "#22c55e";
-  }
-
-  function dislikeMessage(el) {
-    if (!el) return;
-    el.style.color = "#ef4444";
-  }
-
-  function speakAgain(id) {
-    const el = document.getElementById(id);
-    if (!el) return;
-    speak(el.textContent || "");
-  }
-
-  async function shareText(id) {
-    const el = document.getElementById(id);
-    if (!el) return;
-
-    const text = el.textContent || "";
-    if (navigator.share) {
-      await navigator.share({ text });
-    } else {
-      await navigator.clipboard.writeText(text);
-      alert("Testo copiato ✅");
+    if ("speechSynthesis" in window) {
+      pickItalianVoice();
+      speechSynthesis.onvoiceschanged = pickItalianVoice;
     }
-  }
 
-  // =========================
-  // START
-  // =========================
-  add("ai", "Ciao 👋 Sono ChatAI Bob. Scrivi pure.");
-  autoResize();
-
-  if ("speechSynthesis" in window) {
-    pickItalianVoice();
-    speechSynthesis.onvoiceschanged = pickItalianVoice;
-  }
-
-  checkBackend();
-  registerSW();
-</script>
+    checkBackend();
+  </script>
 </body>
 </html>
